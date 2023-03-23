@@ -1,4 +1,5 @@
 #include "Prover.h"
+#include <cassert>
 
 Prover::Prover() {}
 Prover::~Prover() {}
@@ -8,6 +9,103 @@ void Prover::createModalImplication(int modality, Literal left, Literal right,
         modal_lit_implication &modalFromRight) {
     modalLits[modality][left].insert(right);
     modalFromRight[modality][right].insert(left);
+}
+
+void Prover::refineOverApproximation(int modality, const literal_set &model, const literal_set &conflict) {
+    cout << "CONFLICT: ";
+    for (auto x : conflict) cout << x.toString() << " "; cout << endl;
+    //refineBoxOverApproximation(modality, model, conflict);
+    refineDiamondOverApproximation(modality, model, conflict);
+}
+
+void Prover::refineBoxOverApproximation(int modality, const literal_set &model, const literal_set &conflict) {
+    // If an untriggered box clause contributed to a conflict, split it
+
+    assert (boxGrouping[modality].has_value());
+    
+    unordered_set<int> groupsToSplit;
+    unordered_set<int> triggeredGroups;
+    for (auto literalAndGroup : boxGrouping[modality].value().groupIdentifier) {
+        if (model.find(literalAndGroup.first) == model.end()) {
+            for (Literal lit : boxLits[modality][literalAndGroup.first]) {
+                if (conflict.find(lit) != conflict.end()) {
+                    cout << "UNTRIGGERED CONF: " <<  literalAndGroup.first.toString() << endl;
+                    groupsToSplit.insert(literalAndGroup.second);
+                    break;
+                }
+            }
+        } else {
+            triggeredGroups.insert(literalAndGroup.second);
+        }
+    }
+
+    for (int groupToSplit : groupsToSplit) if (triggeredGroups.find(groupToSplit) != triggeredGroups.end()) {
+        int newGroup = boxGrouping[modality].value().modalGroups++;
+        for (auto literalAndGroup : boxGrouping[modality].value().groupIdentifier) {
+            if ((literalAndGroup.second == groupToSplit) && 
+                    (model.find(literalAndGroup.first) == model.end())) {
+                boxGrouping[modality].value().groupIdentifier[literalAndGroup.first] = newGroup;
+            }
+        }
+    }
+    cout << "Box Overapproximation size: " << boxGrouping[modality].value().modalGroups << " / " << boxGrouping[modality].value().groupIdentifier.size() << endl;
+}
+void Prover::refineDiamondOverApproximation(int modality, const literal_set &model, const literal_set &conflict) {
+    assert (diamondGrouping[modality].has_value());
+    // If two diamonds in the conflict set, split them up
+    unordered_set<int> groupsToSplit;
+    unordered_set<int> triggeredGroups;
+    for (auto literalAndGroup : diamondGrouping[modality].value().groupIdentifier) {
+        if (model.find(literalAndGroup.first) != model.end()) triggeredGroups.insert(literalAndGroup.second);
+        for (Literal lit : diamondLits[modality][literalAndGroup.first]) {
+            if (conflict.find(lit) != conflict.end()) {
+                if (groupsToSplit.find(literalAndGroup.second) == groupsToSplit.end()) {
+                    groupsToSplit.insert(literalAndGroup.second);
+                } else {
+                    int newGroup = diamondGrouping[modality].value().modalGroups++;
+                    diamondGrouping[modality].value().groupIdentifier[literalAndGroup.first] = newGroup;
+                    cout << "Dia Overapproximation size: " << diamondGrouping[modality].value().modalGroups << " / " << diamondGrouping[modality].value().groupIdentifier.size() << endl;
+                    return;
+                }
+            }
+        }
+    }
+    // OR if an unfired diamond is in the conflict set, split it up
+    for (auto literalAndGroup : diamondGrouping[modality].value().groupIdentifier) {
+        if ((model.find(literalAndGroup.first) == model.end()) && 
+                (triggeredGroups.find(literalAndGroup.second) != triggeredGroups.end())) {
+            for (auto lit : diamondLits[modality][literalAndGroup.first]) {
+                if (conflict.find(lit) != conflict.end()) {
+                    int newGroup = diamondGrouping[modality].value().modalGroups++;
+                    diamondGrouping[modality].value().groupIdentifier[literalAndGroup.first] = newGroup;
+                    cout << "Dia Overapproximation size: " << diamondGrouping[modality].value().modalGroups << " / " << diamondGrouping[modality].value().groupIdentifier.size() << endl;
+                    return;
+
+                }
+            }
+        }
+    }
+
+}
+
+void Prover::createBoxOverApproximation() {
+    for (auto implications : boxLits) {
+        literal_set allLiterals;
+        for (auto lit_implication : implications.second) {
+            allLiterals.insert(lit_implication.first);
+        }
+        boxGrouping[implications.first] = ModalOverApproximation(allLiterals);
+    }
+}
+
+void Prover::createDiamondOverApproximation() {
+    for (auto implications : diamondLits) {
+        literal_set allLiterals;
+        for (auto lit_implication : implications.second) {
+            allLiterals.insert(lit_implication.first);
+        }
+        diamondGrouping[implications.first] = ModalOverApproximation(allLiterals);
+    }
 }
 
 string Prover::getPrimitiveName(shared_ptr<Formula> formula) {
@@ -47,6 +145,42 @@ void Prover::calculateTriggeredModalClauses(modal_lit_implication &modalLits,
     }
 }
 
+void Prover::calculateTriggeredModalClauses(modal_lit_implication &modalLits,
+        modal_literal_map &triggered, modal_grouping &overApproximation) {
+
+    triggered.clear();
+
+    for (auto modalityLitImplication : modalLits) {
+        // Triggered groups are unique for each modality
+        unordered_set<int> triggeredGroups; 
+        auto modalityOverApproximation = overApproximation[modalityLitImplication.first];
+        literal_set pretendTriggeredLiterals;
+
+        for (auto literalImplication : modalityLitImplication.second) {
+            if (modelSatisfiesAssump(literalImplication.first)) {
+                if (modalityOverApproximation.has_value()) {
+                    triggeredGroups.insert(overApproximation[modalityLitImplication.first]->groupIdentifier[literalImplication.first]);
+                } else {
+                    //pretendTriggeredLiterals.insert(literalImplication.first);
+                    triggered[modalityLitImplication.first].insert(literalImplication.second.begin(), literalImplication.second.end());
+                }
+            }
+        }
+
+        if (modalityOverApproximation.has_value()) {
+            for (auto literalAndGroup : modalityOverApproximation.value().groupIdentifier) {
+                if (triggeredGroups.find(literalAndGroup.second) != triggeredGroups.end()) {
+                    triggered[modalityLitImplication.first].insert(
+                        modalityLitImplication.second[literalAndGroup.first].begin(),
+                        modalityLitImplication.second[literalAndGroup.first].end()
+                    );
+
+                }
+            }
+        }
+    }
+}
+
 bool Prover::modelSatisfiesAssumps(literal_set assumptions) {
     for (Literal assump : assumptions) {
         if (!modelSatisfiesAssump(assump)) {
@@ -70,7 +204,7 @@ Prover::getTriggeredModalClauses(modal_lit_implication &modalLits) {
 }
 
 void Prover::calculateTriggeredBoxClauses() {
-    calculateTriggeredModalClauses(boxLits, triggeredBoxes);
+    calculateTriggeredModalClauses(boxLits, triggeredBoxes);//, boxGrouping);
 }
 
 void Prover::calculateTriggeredDiamondsClauses() {
@@ -197,6 +331,32 @@ diamond_queue Prover::getPrioritisedTriggeredDiamonds(int modality, literal_set&
     return prioritisedTriggeredDiamonds;
 }
 
+diamond_queue Prover::getPrioritisedTriggeredDiamondsOverApproximation(int modality, literal_set& triggeredBoxes, literal_set& triggeredDiamonds) {
+
+    unordered_set<int> triggeredGroups;
+
+    // Note MUST avoid box clauses
+    diamond_queue prioritisedTriggeredDiamonds;
+    return prioritisedTriggeredDiamonds;
+}
+
+literal_set Prover::getDiamondOverApproximation(int modality, Literal diamondRepresentative, literal_set model) {
+    literal_set ans;
+    int triggeredGroup = -1;
+    for (auto x : diamondLits[modality]) {
+        if (x.second.find(diamondRepresentative) != x.second.end()) {
+            triggeredGroup = diamondGrouping[modality].value().groupIdentifier[x.first];
+        }
+    }
+
+    for (auto x : diamondLits[modality]) {
+        if (model.find(x.first) == model.end()) continue;
+        if (triggeredGroup == diamondGrouping[modality].value().groupIdentifier[x.first]) {
+            ans.insert(x.second.begin(), x.second.end());
+        }
+    }
+    return ans;
+}
 
 vector<literal_set> Prover::createConflictGroups(int modality, literal_set nextModalContextConflict) {
     vector<literal_set> conflictGroups;

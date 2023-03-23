@@ -8,6 +8,7 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <optional>
 
 using namespace std;
 
@@ -44,6 +45,30 @@ struct DiamondFailCompare {
   }
 };
 
+typedef unordered_map<Literal, int, LiteralHash, LiteralEqual> modalGroupIdentifier;
+
+struct ModalOverApproximation {
+    modalGroupIdentifier groupIdentifier;   
+    int modalGroups;
+
+    ModalOverApproximation(literal_set &literals) {
+        for (auto lit : literals) {
+            groupIdentifier[lit] = 0;
+        }
+        modalGroups = 1;
+    }
+
+    string toString() {
+        string ans = "Over approximation Grouping\n";
+       for (auto lit : groupIdentifier) {
+           ans += lit.first.toString() + ": " + to_string(lit.second) + "\n";
+       }
+       return ans;
+    }
+};
+
+typedef unordered_map<int, optional<ModalOverApproximation>> modal_grouping;
+
 typedef priority_queue<DiamondFail, vector<DiamondFail>, DiamondFailCompare>
     diamond_queue;
 
@@ -59,6 +84,9 @@ private:
 
   void calculateTriggeredModalClauses(modal_lit_implication &modal_lits,
                                       modal_literal_map &triggered);
+  void calculateTriggeredModalClauses(modal_lit_implication &modal_lits,
+                                      modal_literal_map &triggered,
+                                      modal_grouping &overApproximations);
   modal_literal_map getTriggeredModalClauses(modal_lit_implication &modalLits);
   literal_set getNotModalTriggerers(Literal right, int modality,
                                     modal_lit_implication &modalFromRight);
@@ -67,6 +95,9 @@ private:
     vector<literal_set> generateClauses(vector<literal_set> literalCombinations);
     vector<literal_set> checkClauses(int modality, vector<literal_set> clauses, literal_set badClause);
     vector<literal_set> createConflictGroups(int modality, literal_set nextModalContextConflict);
+
+    modal_grouping diamondGrouping;
+    modal_grouping boxGrouping;
 
 protected:
   modal_lit_implication boxLits;
@@ -122,8 +153,13 @@ public:
 
   diamond_queue getPrioritisedTriggeredDiamonds(
       int modality, literal_set& triggeredBoxes, literal_set& triggeredDiamonds);
+  diamond_queue getPrioritisedTriggeredDiamondsOverApproximation(
+      int modality, literal_set& triggeredBoxes, literal_set& triggeredDiamonds);
+    literal_set getDiamondOverApproximation(int modality, Literal diamondRepresenative, literal_set model);
+
   // NOTE ENSURE THIS AVOIDS BOXES
   void calculateTriggeredModalClauses();
+  
 
   void updateLastFail(Literal diamondRight);
 
@@ -141,6 +177,12 @@ public:
   vector<literal_set> getClauses(int modality, literal_set conflict);
   vector<literal_set> getClauses(int modality, vector<literal_set> conflicts);
     vector<literal_set> negatedClauses(vector<literal_set> clauses);  
+
+    void createBoxOverApproximation();
+    void createDiamondOverApproximation();
+    void refineOverApproximation(int modality, const literal_set &model, const literal_set &conflict);
+    void refineBoxOverApproximation(int modality, const literal_set &model, const literal_set &conflict);
+    void refineDiamondOverApproximation(int modality, const literal_set &model, const literal_set &conflict);
 };
 
 #endif

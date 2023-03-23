@@ -11,6 +11,7 @@
 #include "../../Prover/MinisatProver/MinisatProver.h"
 #include "../../Prover/IpasirProver/IpasirProver.h"
 #include "../Cache/Cache.h"
+#include "../GlobalCache/GlobalCache.h"
 #include "../FormulaTriple/FormulaTriple.h"
 #include <climits>
 #include <exception>
@@ -63,12 +64,9 @@ private:
 
   formula_set removeAnds(const shared_ptr<Formula> &formula);
 
-  void combineBoxRight();
-  void combineDiamondRight();
-  void combineBoxLeft();
 
 protected:
-  static Cache cache;
+  static GlobalCache cache;
 
   shared_ptr<Trieform> parent;
   void ensureSubtrieExistence(int submodality);
@@ -140,6 +138,9 @@ public:
 
   void preprocessTense();
   void doResiduation();
+  void combineBoxRight();
+  void combineDiamondRight();
+  void combineBoxLeft();
 };
 
 #endif
