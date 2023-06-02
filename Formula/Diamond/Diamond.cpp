@@ -37,8 +37,9 @@ shared_ptr<Formula> Diamond::getSubformula() const { return subformula_; }
 void Diamond::incrementPower() { power_++; }
 
 string Diamond::toString() const {
-  return "<" + to_string(modality_) + ">^" + to_string(power_) + " " +
-         subformula_->toString();
+    string ret = "";
+    for (int i = 0; i < power_; ++i) ret += "<" + to_string(modality_) + ">";
+    return ret + subformula_->toString();
 }
 
 FormulaType Diamond::getType() const { return FDiamond; }
@@ -82,6 +83,24 @@ shared_ptr<Formula> Diamond::modalFlatten() {
     }
   }
   return shared_from_this();
+}
+
+
+shared_ptr<Formula> Diamond::axiomSimplify(int axiom, int depth) { 
+    if (axiom == 2 && depth >= 1) {
+        if (subformula_->getType() == FBox) {
+            Box *b = dynamic_cast<Box *>(subformula_.get());
+            return b->getSubformula()->axiomSimplify(axiom, depth);
+        }
+        return shared_from_this();
+    } else {
+        subformula_ = subformula_->axiomSimplify(axiom, depth+power_);
+        if (depth > 0)
+            power_ = 1;
+        else
+            power_ = min(power_, 2);
+        return shared_from_this(); 
+    }
 }
 
 shared_ptr<Formula> Diamond::create(int modality, int power,

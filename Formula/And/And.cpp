@@ -33,8 +33,13 @@ void And::addSubformula(const shared_ptr<Formula> &subformula) {
 }
 
 string And::toString() const {
+    std::vector<shared_ptr<Formula>> sortedSet(andSet_.begin(), andSet_.end());
+    std::sort(sortedSet.begin(), sortedSet.end(), [](const auto& a, const auto &b) {
+
+        return a->hash() < b->hash();
+    });
   string rep = "(";
-  for (shared_ptr<Formula> formula : andSet_) {
+  for (shared_ptr<Formula> formula : sortedSet) {
     rep += formula->toString() + " & ";
   }
   rep = rep.substr(0, rep.size() - 3) + ")";
@@ -138,6 +143,18 @@ shared_ptr<Formula> And::modalFlatten() {
     return *nonBoxSet.begin();
   }
   andSet_ = nonBoxSet;
+  return shared_from_this();
+}
+
+
+ 
+shared_ptr<Formula> And::axiomSimplify(int axiom, int depth) {
+  formula_set newAndSet;
+  for (shared_ptr<Formula> formula : andSet_) {
+    newAndSet.insert(formula->axiomSimplify(axiom, depth));
+  }
+  andSet_ = newAndSet;
+
   return shared_from_this();
 }
 

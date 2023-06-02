@@ -56,7 +56,7 @@ void TrieformProverK45::transitiveMakePersistence() {
 
     // Make persistence
     shared_ptr<Formula> persistent =
-        persistentCache.getVariableOrCreate(boxClause.right);
+        persistentCache->getVariableOrCreate(boxClause.right);
     persistentBoxes.insert({boxClause.modality, persistent, persistent});
 
     formula_set leftSet;
@@ -133,10 +133,11 @@ Solution TrieformProverK45::prove(vector<shared_ptr<Bitset>> history,
     return memoResult.result;
   }
 
+  /*
   if (isInHistory(history, assumptionsBitset)) {
     // cout << "HISTORYSAT" << endl;
     return {true, literal_set()};
-  }
+  }*/
 
   // Solve locally
   Solution solution = prover->solve(assumptions);

@@ -1,6 +1,9 @@
 #include "MinisatProver.h"
 
-MinisatProver::MinisatProver() {
+shared_ptr<Minisat::SimpSolver> MinisatProver::completeSolver = shared_ptr<Minisat::SimpSolver>(new Minisat::SimpSolver());
+
+
+MinisatProver::MinisatProver(bool onesat) {
   // solver->random_var_freq = 0;
   // solver->rnd_init_act = true;
   // solver->ccmin_mode = 1;
@@ -8,7 +11,20 @@ MinisatProver::MinisatProver() {
   // solver->var_decay = 0.5;
   // solver->luby_restart = false;
   // solver->
-  solver->eliminate(true);
+
+    onesat = false;
+  if (onesat) {
+        completeSolver->eliminate(true);
+        //completeSolver->verbosity=2;
+    calcSolver = completeSolver;
+    //calcSolver = solver;
+
+  } else {
+        solver->eliminate(true);
+        //solver->verbosity=2;
+      calcSolver = solver;
+  }
+ // calcSolver->verbosity = 2;
 }
 MinisatProver::~MinisatProver() {}
 
@@ -23,16 +39,17 @@ modal_names_map MinisatProver::prepareSAT(FormulaTriple clauses,
 
   prepareFalse();
   prepareClauses(clauses.getClauses());
+
   return newExtra;
 }
 
 void MinisatProver::prepareFalse() {
-  solver->addClause(~Minisat::mkLit(createOrGetVariable("$false")));
+    calcSolver->addClause(~Minisat::mkLit(createOrGetVariable("$false")));
 }
 
 void MinisatProver::prepareExtras(name_set extra) {
   for (string name : extra) {
-    createOrGetVariable(name);
+    createOrGetVariable(name);//, Minisat::lbool((uint8_t)0));
   }
 }
 
@@ -44,9 +61,13 @@ void MinisatProver::prepareClauses(clause_set clauses) {
            dynamic_cast<Or *>(clause.formula.get())->getSubformulas()) {
         literals.push(makeLiteral(subformula));
       }
-      solver->addClause(literals);
+
+      calcSolver->addClause(literals);
+
     } else {
-      solver->addClause(makeLiteral(clause.formula));
+
+        calcSolver->addClause(makeLiteral(clause.formula));
+
     }
   }
 }
@@ -73,7 +94,8 @@ void MinisatProver::prepareModalClauses(modal_clause_set modal_clauses,
 Minisat::Var MinisatProver::createOrGetVariable(string name,
                                                 Minisat::lbool polarity) {
   if (variableMap.find(name) == variableMap.end()) {
-    variableMap[name] = solver->newVar(polarity);
+    Minisat::Var newVar =calcSolver->newVar(polarity);  
+    variableMap[name] = newVar;
     nameMap[variableMap[name]] = name;
   }
   return variableMap[name];
@@ -96,11 +118,13 @@ shared_ptr<Minisat::vec<Minisat::Lit>>
 MinisatProver::convertAssumptions(literal_set assumptions) {
   shared_ptr<Minisat::vec<Minisat::Lit>> literals =
       shared_ptr<Minisat::vec<Minisat::Lit>>(new Minisat::vec<Minisat::Lit>());
+
   for (Literal assumption : assumptions) {
     Minisat::Var variable = variableMap[assumption.getName()];
     literals->push(assumption.getPolarity() ? Minisat::mkLit(variable)
                                             : ~Minisat::mkLit(variable));
-  }
+
+  } 
   return literals;
 }
 
@@ -109,7 +133,7 @@ bool MinisatProver::modelSatisfiesAssump(Literal assumption) {
     return false;
   }
   int lbool =
-      Minisat::toInt(solver->modelValue(variableMap[assumption.getName()]));
+      Minisat::toInt(calcSolver->modelValue(variableMap[assumption.getName()]));
   if (lbool == 2) {
     throw runtime_error("Model value for " + assumption.getName() +
                         " is undefined");
@@ -132,9 +156,9 @@ Solution MinisatProver::solve(const literal_set &assumptions) {
   Solution solution;
   shared_ptr<Minisat::vec<Minisat::Lit>> vecAssumps =
       convertAssumptions(assumptions);
-  solution.satisfiable = solver->solve(*vecAssumps);
+  solution.satisfiable = calcSolver->solve(*vecAssumps);
   if (!solution.satisfiable) {
-    solution.conflict = convertConflictToAssumps(solver->conflict);
+    solution.conflict = convertConflictToAssumps(calcSolver->conflict);
   }
   return solution;
 }
@@ -155,13 +179,13 @@ void MinisatProver::reduce_conflict(literal_set& conflict) {
 }
 
 void MinisatProver::addClause(literal_set clause) {
-  solver->addClause(*convertAssumptions(clause));
+  calcSolver->addClause(*convertAssumptions(clause));
 }
 
 void MinisatProver::printModel() {
   for (auto varName : nameMap) {
     cout << varName.second << " is "
-         << Minisat::toInt(solver->modelValue(varName.first)) << endl;
+         << Minisat::toInt(calcSolver->modelValue(varName.first)) << endl;
   }
 }
 
@@ -173,7 +197,7 @@ literal_set MinisatProver::getModel() {
     literal_set model;
     for (auto varName : nameMap) {
         model.insert(
-            Literal(varName.second, 1 - Minisat::toInt(solver->modelValue(varName.first)))
+            Literal(varName.second, 1 - Minisat::toInt(calcSolver->modelValue(varName.first)))
         );
     }
     return model;

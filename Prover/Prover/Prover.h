@@ -98,6 +98,7 @@ private:
 
     modal_grouping diamondGrouping;
     modal_grouping boxGrouping;
+    static unordered_map<string, name_set>  graph;
 
 protected:
   modal_lit_implication boxLits;
@@ -119,6 +120,8 @@ protected:
                                    modal_lit_implication &modalFromRight) = 0;
 
   virtual int getLiteralId(Literal literal) = 0;
+
+
 
 public:
   Prover();
@@ -183,6 +186,7 @@ public:
     void refineOverApproximation(int modality, const literal_set &model, const literal_set &conflict);
     void refineBoxOverApproximation(int modality, const literal_set &model, const literal_set &conflict);
     void refineDiamondOverApproximation(int modality, const literal_set &model, const literal_set &conflict);
+  vector<literal_set> filterPropagatedConflicts(vector<literal_set> clauses);
 };
 
 #endif

@@ -34,8 +34,7 @@ private:
                            modal_lit_implication &modalLits,
                            modal_lit_implication &modalFromRight);
 
-  int
-  createOrGetVariable(string name);
+  int createOrGetVariable(string name);
   int makeLiteral(shared_ptr<Formula> formula);
 
   shared_ptr<vector<int>>
@@ -49,7 +48,7 @@ private:
   literal_set getModel();
 
 public:
-  IpasirProver();
+  IpasirProver(bool onesat = false);
   ~IpasirProver();
 
   modal_names_map prepareSAT(FormulaTriple clauses,
@@ -58,6 +57,11 @@ public:
   void reduce_conflict(literal_set& conflict);
   void addClause(literal_set clause);
   void printModel();
+
+    static shared_ptr<Lingeling> completeSolver;
+    shared_ptr<Lingeling> calcSolver;
+    static shared_ptr<unordered_map<string, int>> completeVariableMap;
+    shared_ptr<unordered_map<string, int>> calcVariableMap;
 };
 
 #endif

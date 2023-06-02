@@ -193,7 +193,9 @@ modal_literal_map
 Prover::getTriggeredModalClauses(modal_lit_implication &modalLits) {
     modal_literal_map triggered;
     for (auto modalityLitImplication : modalLits) {
+        cout << "Checking modality " << modalityLitImplication.first << endl;
         for (auto literalImplication : modalityLitImplication.second) {
+            cout << "Checking " << literalImplication.first.toString() << " -> " << (*literalImplication.second.begin()).toString() << endl;
             if (modelSatisfiesAssump(literalImplication.first)) {
                 triggered[modalityLitImplication.first].insert(
                         literalImplication.second.begin(), literalImplication.second.end());
@@ -304,7 +306,7 @@ literal_set Prover::getNotDiamondLeft(int modality, Literal diamond) {
     return notDiamondLeft;
 }
 
-void Prover::updateLastFail(Literal clause) { lastFail[clause] = ++failCount; }
+void Prover::updateLastFail(Literal clause) { lastFail[clause] = --failCount; }
 
 diamond_queue Prover::getPrioritisedTriggeredDiamonds(int modality) {
     // Note MUST avoid box clauses
@@ -316,6 +318,14 @@ diamond_queue Prover::getPrioritisedTriggeredDiamonds(int modality) {
             prioritisedTriggeredDiamonds.push({diamond, lastFail[diamond]});
         }
     }
+
+    // If we have no triggered diamonds, we are in D \subset B case
+    // We create one world
+    if (prioritisedTriggeredDiamonds.size() == 0) {
+        Literal diamond = *triggeredDiamonds.begin();
+        prioritisedTriggeredDiamonds.push({diamond, lastFail[diamond]});
+    }
+
     return prioritisedTriggeredDiamonds;
 }
 
@@ -327,6 +337,12 @@ diamond_queue Prover::getPrioritisedTriggeredDiamonds(int modality, literal_set&
         if (triggeredBoxes.find(diamond) == triggeredBoxes.end()) {
             prioritisedTriggeredDiamonds.push({diamond, lastFail[diamond]});
         }
+    }
+    // If we have no triggered diamonds, we are in D \subset B case
+    // We create one world
+    if (prioritisedTriggeredDiamonds.size() == 0) {
+        Literal diamond = *triggeredDiamonds.begin();
+        prioritisedTriggeredDiamonds.push({diamond, lastFail[diamond]});
     }
     return prioritisedTriggeredDiamonds;
 }
@@ -465,6 +481,15 @@ vector<literal_set> Prover::checkClauses(int modality, vector<literal_set> claus
     return validClauses;
 }
 
+vector<literal_set> Prover::filterPropagatedConflicts(vector<literal_set> clauses) {
+    // Only propagate clauses with size 2 (otherwise it can blow up)
+    vector<literal_set> result;
+    for (literal_set clause : clauses) {
+        if (clause.size() > 2) continue;
+        result.push_back(clause);
+    }
+    return result;
+}
 vector<literal_set> Prover::negatedClauses(vector<literal_set> clauses) {
     vector<literal_set> result;
     for (literal_set clause : clauses) {
@@ -478,14 +503,50 @@ vector<literal_set> Prover::negatedClauses(vector<literal_set> clauses) {
 }
 
 vector<literal_set> Prover::getClauses(int modality, literal_set conflict) {
-    return negatedClauses(checkClauses(modality, generateClauses(createConflictGroups(modality, conflict)), conflict));
+    if (conflict.size() != 0) {
+        return negatedClauses(checkClauses(modality, generateClauses(createConflictGroups(modality, conflict)), conflict));
+    }else {
+        vector<literal_set> clauses;
+        for (auto x : diamondLits[modality]) {
+            if (x.second.empty()) continue;
+            literal_set litset;
+            litset.insert(~x.first);
+            //cout << (~x.first).toString() << " "; 
+            clauses.push_back(litset);
+        } //                                   cout << endl;
+        return clauses;
+    }
 }
+
 vector<literal_set> Prover::getClauses(int modality, vector<literal_set> conflicts) {
     vector<literal_set> result;
     for (auto conflict : conflicts) {
         auto newConflicts = getClauses(modality, conflict);
         result.insert(result.end(), newConflicts.begin(), newConflicts.end());
     }
-    return result;
+
+    // Remove duplicates
+    vector<literal_set> pure;
+    std::sort(result.begin(), result.end(), [&](const literal_set & a, const literal_set & b){ return a.size() < b.size(); });
+
+    for (literal_set conflict : result) {
+        bool isPure = true;
+        for (literal_set done : pure) {
+            bool contains = true;
+            for (Literal x : done) {
+                if (conflict.find(x) == conflict.end()) {
+                    contains = false;
+                    break;
+                }
+            }
+            if (contains) {
+                isPure = false;
+                break;
+            }
+        }
+
+        if (isPure) pure.push_back(conflict);
+    }
+    return pure;
 }
 
