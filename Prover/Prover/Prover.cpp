@@ -12,8 +12,6 @@ void Prover::createModalImplication(int modality, Literal left, Literal right,
 }
 
 void Prover::refineOverApproximation(int modality, const literal_set &model, const literal_set &conflict) {
-    cout << "CONFLICT: ";
-    for (auto x : conflict) cout << x.toString() << " "; cout << endl;
     //refineBoxOverApproximation(modality, model, conflict);
     refineDiamondOverApproximation(modality, model, conflict);
 }
@@ -53,39 +51,22 @@ void Prover::refineBoxOverApproximation(int modality, const literal_set &model, 
 void Prover::refineDiamondOverApproximation(int modality, const literal_set &model, const literal_set &conflict) {
     assert (diamondGrouping[modality].has_value());
     // If two diamonds in the conflict set, split them up
-    unordered_set<int> groupsToSplit;
-    unordered_set<int> triggeredGroups;
+    unordered_set<int> seenGroups;
+    unordered_set<int> groupsInConflict;
     for (auto literalAndGroup : diamondGrouping[modality].value().groupIdentifier) {
-        if (model.find(literalAndGroup.first) != model.end()) triggeredGroups.insert(literalAndGroup.second);
-        for (Literal lit : diamondLits[modality][literalAndGroup.first]) {
-            if (conflict.find(lit) != conflict.end()) {
-                if (groupsToSplit.find(literalAndGroup.second) == groupsToSplit.end()) {
-                    groupsToSplit.insert(literalAndGroup.second);
-                } else {
-                    int newGroup = diamondGrouping[modality].value().modalGroups++;
-                    diamondGrouping[modality].value().groupIdentifier[literalAndGroup.first] = newGroup;
-                    cout << "Dia Overapproximation size: " << diamondGrouping[modality].value().modalGroups << " / " << diamondGrouping[modality].value().groupIdentifier.size() << endl;
-                    return;
-                }
-            }
+        
+        auto lit = literalAndGroup.first;
+        if (conflict.find(lit) == conflict.end()) continue;
+        if (groupsInConflict.find(literalAndGroup.second) == groupsInConflict.end()) {
+            groupsInConflict.insert(literalAndGroup.second);
+        } else {
+            int newGroup = diamondGrouping[modality].value().modalGroups++;
+            diamondGrouping[modality].value().groupIdentifier[lit] = newGroup;
+            //cout << diamondGrouping[modality].value().toString();
+            cout << "Dia Overapproximation size: " << diamondGrouping[modality].value().modalGroups << " / " << diamondGrouping[modality].value().groupIdentifier.size() << endl;
+            return;
         }
-    }
-    // OR if an unfired diamond is in the conflict set, split it up
-    for (auto literalAndGroup : diamondGrouping[modality].value().groupIdentifier) {
-        if ((model.find(literalAndGroup.first) == model.end()) && 
-                (triggeredGroups.find(literalAndGroup.second) != triggeredGroups.end())) {
-            for (auto lit : diamondLits[modality][literalAndGroup.first]) {
-                if (conflict.find(lit) != conflict.end()) {
-                    int newGroup = diamondGrouping[modality].value().modalGroups++;
-                    diamondGrouping[modality].value().groupIdentifier[literalAndGroup.first] = newGroup;
-                    cout << "Dia Overapproximation size: " << diamondGrouping[modality].value().modalGroups << " / " << diamondGrouping[modality].value().groupIdentifier.size() << endl;
-                    return;
-
-                }
-            }
-        }
-    }
-
+}
 }
 
 void Prover::createBoxOverApproximation() {
@@ -102,7 +83,9 @@ void Prover::createDiamondOverApproximation() {
     for (auto implications : diamondLits) {
         literal_set allLiterals;
         for (auto lit_implication : implications.second) {
-            allLiterals.insert(lit_implication.first);
+            for (auto lit : lit_implication.second) {
+                allLiterals.insert(lit);
+            }
         }
         diamondGrouping[implications.first] = ModalOverApproximation(allLiterals);
     }
@@ -359,16 +342,11 @@ diamond_queue Prover::getPrioritisedTriggeredDiamondsOverApproximation(int modal
 literal_set Prover::getDiamondOverApproximation(int modality, Literal diamondRepresentative, literal_set model) {
     literal_set ans;
     int triggeredGroup = -1;
-    for (auto x : diamondLits[modality]) {
-        if (x.second.find(diamondRepresentative) != x.second.end()) {
-            triggeredGroup = diamondGrouping[modality].value().groupIdentifier[x.first];
-        }
-    }
-
-    for (auto x : diamondLits[modality]) {
-        if (model.find(x.first) == model.end()) continue;
-        if (triggeredGroup == diamondGrouping[modality].value().groupIdentifier[x.first]) {
-            ans.insert(x.second.begin(), x.second.end());
+    triggeredGroup = diamondGrouping[modality].value().groupIdentifier[diamondRepresentative];
+    
+    for (auto x : diamondGrouping[modality].value().groupIdentifier) {
+        if (x.second == triggeredGroup) {
+            ans.insert(x.first);
         }
     }
     return ans;

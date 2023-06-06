@@ -235,6 +235,7 @@ void solve(arguments_struct &args) {
 #if DEBUG_TIME
     auto construct = chrono::steady_clock::now();
 #endif
+
     // cout << "Initial trie:" << endl << trie->toString() << endl;
     // cout << "Correct trie:" << endl << otherTrie->toString() << endl;
 
@@ -274,7 +275,8 @@ void solve(arguments_struct &args) {
         }
     }
     trie->reduceClauses();
-   
+  
+    cout << trie->toString() << endl;
 
     if (args.settings.localReduction) {
         if (args.settings.reflexive)

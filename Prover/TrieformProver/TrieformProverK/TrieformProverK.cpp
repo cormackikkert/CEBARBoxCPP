@@ -65,6 +65,7 @@ void TrieformProverK::prepareSAT(name_set extra) {
         idMap[name] = assumptionsSize++;
     }
     modal_names_map modalExtras = prover->prepareSAT(clauses, extra);
+    prover->createDiamondOverApproximation();
     for (auto modalSubtrie : subtrieMap) {
         modalSubtrie.second->prepareSAT(modalExtras[modalSubtrie.first]);
     }
@@ -148,9 +149,13 @@ Solution TrieformProverK::prove(int depth, literal_set assumptions) {
             Literal diamond = diamondPriority.top().literal;
             diamondPriority.pop();
 
+            literal_set diamondGroup = prover->getDiamondOverApproximation(modalitySubtrie.first, diamond, currentModel);
+            assert (diamondGroup.find(diamond) != diamondGroup.end());
+
             literal_set childAssumptions =
                 literal_set(triggeredBoxes[modalitySubtrie.first]);
-            childAssumptions.insert(diamond);
+            // print diamondGruop
+            childAssumptions.insert(diamondGroup.begin(), diamondGroup.end());
 
             // Run the solver for the next level
             childSolution = childNode->prove(depth + 1, childAssumptions);
@@ -186,15 +191,14 @@ Solution TrieformProverK::prove(int depth, literal_set assumptions) {
         }
 
         if (!diamondFailed) continue;
-
+        
         for (literal_set learnClause : prover->getClauses(
                  modalitySubtrie.first, childSolution.conflict)) {
             allConflicts.push_back(learnClause);
-            //cout << "Learn: ";
-            //for (auto x : learnClause) cout << x.toString() << " ";
-            //cout << endl;
+
             prover->addClause(learnClause);
         }
+            prover->refineOverApproximation(modalitySubtrie.first, currentModel, childSolution.conflict);
         goto restart;
         //return prove(depth, assumptions);
     }
