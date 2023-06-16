@@ -3,11 +3,28 @@
 Prover::Prover() {}
 Prover::~Prover() {}
 
+unordered_map<Literal, Literal, LiteralHash, LiteralEqual> Prover::eventualityToLit = {};
+
+unordered_map<Literal, Literal, LiteralHash, LiteralEqual> Prover::litToEventuality = {};
+
 void Prover::createModalImplication(int modality, Literal left, Literal right,
         modal_lit_implication &modalLits,
         modal_lit_implication &modalFromRight) {
     modalLits[modality][left].insert(right);
     modalFromRight[modality][right].insert(left);
+}
+
+void Prover::createLtlImplication(literal_set left, Literal right, 
+        ltl_implications &ltl_imps, bool succInSat) {
+    ltl_imps[right].push_back(left);
+    if (succInSat) {
+        literal_set newClause;
+        for (auto literal : left) {
+            newClause.insert(~Literal(literal.getName() + "'", literal.getPolarity()));
+        }
+        newClause.insert(right);
+        addClause(newClause);
+    }
 }
 
 string Prover::getPrimitiveName(shared_ptr<Formula> formula) {
@@ -45,6 +62,87 @@ void Prover::calculateTriggeredModalClauses(modal_lit_implication &modalLits,
             }
         }
     }
+}
+
+
+void Prover::calculateTriggeredLtlClauses(ltl_implications &ltlImplications,
+        literal_set &triggered) {
+    for (auto ltlImplication : ltlImplications) {
+        for (auto clause : ltlImplication.second) {
+            if (modelSatisfiesAssumps(clause)) {
+                triggered.insert(ltlImplication.first);
+            }
+        }
+    }
+}
+
+string clauseToString(literal_set clause) {
+    string result = "";
+    for (auto literal : clause) {
+        result += literal.toString() + " ";
+    }
+    return result;
+}
+
+void Prover::makeLtlTail() {
+    // No next state eventualites
+    //cout << endl;
+    //cout << "Adding clauses to make a tail: " << endl;
+    //cout << "No next state eventualities" << endl;
+
+    literal_set boxSteps;
+    for (auto ltlStepClause : ltlStepImplications) {
+        for (auto clause : negatedClauses(ltlStepClause.second)) {
+            if (clause == literal_set({~ltlStepClause.first})) {
+                boxSteps.insert(~ltlStepClause.first);
+            }
+        }
+    }
+    //cout << "BOX STEPS: " << litsetString(boxSteps) << endl;
+
+    for (auto ltlStepClause : ltlStepImplications) {
+        for (auto clause : negatedClauses(ltlStepClause.second)) {
+            if ((clause.size() == 1) && (boxSteps.find(*clause.begin()) != boxSteps.end())) continue;
+            //cout << clauseToString(clause) << endl;
+            addClause(clause);
+        }
+    }
+    // All eventualities are fulfilled in current world
+    //cout << "All eventualities are fulfilled in the current world" << endl;
+    for (auto eventuality : eventualityToLit) {
+        //cout << clauseToString({~eventuality.first, eventuality.second}) << endl;
+        addClause({~eventuality.first, eventuality.second});
+    }
+    // All eventualities that will be triggered all also fulfilled
+    //cout << "All eventualities that will be triggered are also fulfilled" << endl;
+    for (auto ltlEventualityImplication : ltlEventualityImplications) {
+        for (auto clause : negatedClauses(ltlEventualityImplication.second)) {
+            //cout << clauseToString(clause) << endl;
+            addClause(clause);
+        }
+    }
+}
+
+pair<literal_set, literal_set> Prover::getLtlSuccessorAssumps(
+        literal_set eventualities) {
+    literal_set currentModel = getModel();
+    literal_set stepTriggered;
+    calculateTriggeredLtlClauses(ltlStepImplications, stepTriggered);
+    calculateTriggeredLtlClauses(ltlEventualityImplications, eventualities);
+    // remove fulfilled eventualities
+    
+    std::vector<Literal> elementsToRemove;
+    for (const auto& eventuality : eventualities) {
+        if (currentModel.find(eventualityToLit.at(eventuality)) != currentModel.end()) {
+            elementsToRemove.push_back(eventuality);
+        }
+    }
+
+    for (const auto& element : elementsToRemove) {
+        eventualities.erase(element);
+    }
+
+    return make_pair(stepTriggered, eventualities);
 }
 
 bool Prover::modelSatisfiesAssumps(literal_set assumptions) {
@@ -265,6 +363,131 @@ Prover::generateClauses(vector<literal_set> literalCombinations) {
     return clauses;
 }
 
+vector<literal_set> Prover::canTriggerLtlLiteral(Literal lit) {
+    // Used for learning a reason
+    vector<literal_set> ans;
+    if (ltlEventualityImplications.find(lit) != ltlEventualityImplications.end()) {
+        for (literal_set trigger : ltlEventualityImplications[lit]) {
+            ans.push_back(trigger);
+        }
+    }
+
+    if (ltlStepImplications.find(lit) != ltlStepImplications.end()) {
+        for (literal_set trigger : ltlStepImplications[lit]) {
+            ans.push_back(trigger);
+        }
+    }
+    return ans;
+}
+
+vector<literal_set> cartesianProduct(const vector<vector<literal_set>>& arr, size_t index = 0) {
+    vector<literal_set> result;
+
+    if (index == arr.size() - 1) {
+        for (const literal_set& element : arr[index]) {
+            result.push_back(element);
+        }
+        return result;
+    }
+
+    // Recursive case: combine the current vector with the next vectors
+    vector<literal_set> subResult = cartesianProduct(arr, index + 1);
+    for (const literal_set& element : arr[index]) {
+        for (const literal_set& subElement : subResult) {
+            // Combine the current element with each element from the sub-result
+            literal_set combinedSet = element;
+            combinedSet.insert(subElement.begin(), subElement.end());
+            result.push_back(combinedSet);
+        }
+    }
+
+    return result;
+}
+
+void Prover::createLtlSpecification(LtlFormulaTriple &clauses) {
+    makeEventualitiesUnconditional(clauses);
+    makeOneEventuality(clauses);
+}
+
+void Prover::makeEventualitiesUnconditional(LtlFormulaTriple &clauses) {
+    // For every:
+    //   [] (P => <> q)
+    // Replace with:
+    //   [] ((P & ~q) => waitForQ)          (1)
+    //   [] (waitForQ => X (q | waitForQ))  (2)
+    //   [] <> ~waitForQ                    (3)
+    literal_set unconditionalEventualities;
+    int counter = 0;
+    for (auto clause : clauses.getEventualityClauses()) {
+          string waitForName = "$waitFor(" + clause.right.toString() + ")";
+          Literal waitFor = Literal(waitForName, true);
+
+          // Clause 1
+          literal_set newClause; 
+          for (auto x : clause.left) newClause.insert(~x);
+          newClause.insert(clause.right);
+          clauses.addClause(newClause);
+
+          // Clause 2
+          Literal orQ = Literal("$x" + to_string(++counter), true);
+          clauses.addStepClause({waitFor}, orQ);
+          clauses.addClause({~orQ, clause.right, waitFor});
+
+          // Clause 3
+          clauses.addUnconditionalEventuality(~waitFor);
+    }
+}
+
+void Prover::makeOneEventuality(LtlFormulaTriple &clauses) {
+    // convert multiple [] <> Q_i into one eventuality [] <> m 
+    // (m is master)
+    // By introducing tracking variable
+    //   Q_i | (~m & T_i) iff X T_i
+    //      z => X T_i          (1)
+    //      ~Q_i & y => X ~T_i  (2)
+    //      z => Q_i | y        (3)
+    //      ( y iff ~m & T_i)
+    //      y => ~m             (4)
+    //      y => T_i            (5)
+    //      ~y | m | ~T_i       (6)
+    //   m => T_i               (7)
+    //   m => X ~T_i            (8)
+    Literal master = Literal("$master", true);
+    int counter = 0;
+    for (auto eventuality : clauses.getUnconditionalEventualities()) {
+        Literal z = Literal("$z" + to_string(++counter), true);
+        Literal y = Literal("$y" + to_string(counter), true);
+        Literal t = Literal("$track(" + eventuality.toString() + ")", true);
+         
+        clauses.addStepClause({z}, t); // 1
+        clauses.addStepClause({~eventuality, y}, ~t); // 2
+        clauses.addClause({~z, eventuality, y}); // 3
+        clauses.addClause({~y, ~master}); // 4
+        clauses.addClause({~y, t}); // 5
+        clauses.addClause({~y, master, ~t}); // 6
+        clauses.addClause({~master, t}); // 7
+        clauses.addStepClause({master}, ~t); // 8
+    }
+    clauses.setUnconditionalEventualities({master});
+}
+
+vector<literal_set> Prover::createLtlReasons(literal_set conflict) {
+
+    vector<vector<literal_set>> reasonForEachLiteral;
+    for (Literal lit : conflict) {
+        reasonForEachLiteral.push_back(canTriggerLtlLiteral(lit));
+        //cout << "Reason for " << lit.toString() << " is ";
+        //for (auto x : canTriggerLtlLiteral(lit)) {
+            //cout << "{";
+            //for (auto y : x) {
+                //cout << y.toString() << " ";
+            //}
+            //cout << "} ";
+        //}cout << endl;
+    }
+    return negatedClauses(cartesianProduct(reasonForEachLiteral));
+}
+
 bool contains(literal_set &superset, literal_set &subset) {
     for (auto lit : subset) {
         if (superset.find(lit) == superset.end()) return false;
@@ -389,4 +612,5 @@ vector<literal_set> Prover::getClauses(int modality, vector<literal_set> conflic
     }
     return pure;
 }
+
 

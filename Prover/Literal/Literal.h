@@ -42,7 +42,14 @@ typedef unordered_set<Literal, LiteralHash, LiteralEqual> literal_set;
 typedef unordered_map<int, literal_set> modal_literal_map;
 typedef unordered_map<Literal, literal_set, LiteralHash, LiteralEqual>
     lit_implication;
+typedef unordered_map<Literal, vector<literal_set>, LiteralHash, LiteralEqual>
+    ltl_implications;
 typedef unordered_map<int, lit_implication> modal_lit_implication;
+
+struct LitSetImplication {
+    literal_set lhs;
+    Literal rhs;
+};
 
 bool isSubsetOf(literal_set set1, literal_set set2);
 literal_set setDifference(literal_set set1, literal_set set2);

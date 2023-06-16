@@ -2,6 +2,7 @@
 #define PROVER_H
 
 #include "../../Clausifier/FormulaTriple/FormulaTriple.h"
+#include "../../Clausifier/LtlFormulaTriple/LtlFormulaTriple.h"
 #include "../Literal/Literal.h"
 #include <chrono>
 #include <queue>
@@ -70,16 +71,28 @@ private:
 
     static unordered_map<string, name_set>  graph;
 
+
 protected:
+    static unordered_map<Literal, Literal, LiteralHash, LiteralEqual> litToEventuality;
+    static unordered_map<Literal, Literal, LiteralHash, LiteralEqual> eventualityToLit;
+
   modal_lit_implication boxLits;
   modal_lit_implication diamondLits;
   modal_lit_implication boxFromRight;
   modal_lit_implication diamondFromRight;
 
+  ltl_implications ltlStepImplications;
+  ltl_implications ltlEventualityImplications;
+
   void createModalImplication(int modality, Literal left, Literal right,
                               modal_lit_implication &modalLits,
                               modal_lit_implication &modalFromRight);
 
+  void createLtlImplication(literal_set left, Literal right, 
+     ltl_implications &ltl_imps, bool succInSat);
+
+  void makeEventualitiesUnconditional(LtlFormulaTriple &clauses);
+  void makeOneEventuality(LtlFormulaTriple &clauses);
 
   virtual void prepareFalse() = 0;
   virtual void prepareExtras(name_set extra) = 0;
@@ -96,6 +109,8 @@ protected:
 public:
   Prover();
   ~Prover();
+
+  void createLtlSpecification(LtlFormulaTriple &clauses);
 
   Literal toLiteral(shared_ptr<Formula> formula);
 
@@ -129,12 +144,14 @@ public:
   // NOTE ENSURE THIS AVOIDS BOXES
   void calculateTriggeredModalClauses();
 
+    void calculateTriggeredLtlClauses(ltl_implications &ltlLits,literal_set &triggered);
   void updateLastFail(Literal diamondRight);
 
   virtual void printModel() = 0;
 
   virtual modal_names_map prepareSAT(FormulaTriple clauses,
                                      name_set extra = name_set()) = 0;
+  virtual void prepareLtlfSat(LtlFormulaTriple clauses, Literal initialLiteral, bool succInSat) = 0;
   virtual Solution solve(const literal_set &assumptions = literal_set()) = 0;
   virtual void reduce_conflict(literal_set& conflict) = 0;
   virtual void addClause(literal_set clause) = 0;
@@ -147,6 +164,12 @@ public:
     vector<literal_set> negatedClauses(vector<literal_set> clauses);  
 
   vector<literal_set> filterPropagatedConflicts(vector<literal_set> clauses);
+
+
+    pair<literal_set, literal_set> getLtlSuccessorAssumps(literal_set eventualities);
+    vector<literal_set> canTriggerLtlLiteral(Literal lit);
+    vector<literal_set> createLtlReasons(literal_set conflict);
+    void makeLtlTail();
 };
 
 #endif

@@ -31,7 +31,7 @@
 using namespace std;
 
 const char *argp_program_version = "CEGARBox 0.1.0";
-const char *argp_program_bug_address = "robert.mcarthur@anu.edu.au";
+const char *argp_program_bug_address = "cormac.kikkert@anu.edu.au";
 static char doc[] = "An efficient theorem prover for modal logic.";
 static char args_doc[] = "";
 static struct argp_option options[] = {
