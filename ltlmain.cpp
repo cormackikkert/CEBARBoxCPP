@@ -110,7 +110,7 @@ int main(int argc, char **argv) {
   std::string ltl2snfPath = executablePath + "ltl2snf";
 
   // Read input formula from file
-  std::string command =  ltl2snfPath + " -simp -ple -i " + filename + " -o simplified.out";
+  std::string command =  ltl2snfPath + " -aprenex -prenex -reuse_renaming -simp -ple -i " + filename + " -o simplified.out";
   int exitCode = std::system(command.c_str());
   if (exitCode != 0) {
     std::cerr << "Failed to execute ltl2snf program." << std::endl;
@@ -162,7 +162,5 @@ inputFile.close();
   } else {
       cout << "UNSAT" << endl;
   }
-
-
   return 0;
 }

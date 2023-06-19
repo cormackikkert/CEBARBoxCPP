@@ -98,12 +98,30 @@ void Prover::makeLtlTail() {
             }
         }
     }
-    //cout << "BOX STEPS: " << litsetString(boxSteps) << endl;
+
+    literal_set boxSteps2Away;
+    for (auto ltlStepClause : ltlStepImplications) {
+        for (auto clause : ltlStepClause.second) {
+            bool isBoxStep = false;
+            cout << "CHECKING: " << litsetString(clause) << " " << ltlStepClause.first.toString() << endl;
+            for (auto x : clause) if (boxSteps.find(~x) != boxSteps.end()) isBoxStep = true;
+            if (isBoxStep) {
+                boxSteps2Away.insert(~ltlStepClause.first);
+                break;
+            }
+        }
+        //boxSteps.insert(ltlStepClause.second.begin(), ltlStepClause.second.end());
+    }
+    boxSteps.insert(boxSteps2Away.begin(), boxSteps2Away.end());
+    cout << "BOX STEPS: " << litsetString(boxSteps) << endl;
 
     for (auto ltlStepClause : ltlStepImplications) {
         for (auto clause : negatedClauses(ltlStepClause.second)) {
-            if ((clause.size() == 1) && (boxSteps.find(*clause.begin()) != boxSteps.end())) continue;
-            //cout << clauseToString(clause) << endl;
+            bool isBox = false;
+            for (auto lit : clause) if (boxSteps.find(lit) != boxSteps.end()) isBox = true;
+            if (isBox) continue;
+            //if ((clause.size() == 1) && (boxSteps.find(*clause.begin()) != boxSteps.end())) continue;
+            cout << clauseToString(clause) << endl;
             addClause(clause);
         }
     }
