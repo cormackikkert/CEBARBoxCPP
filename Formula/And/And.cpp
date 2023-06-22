@@ -1,22 +1,27 @@
 #include "And.h"
 
-And::And(const formula_set &andSet) {
-  andSet_ = andSet;
-  
+And::And(const formula_set &orSet) {
   std::hash<FormulaType> ftype_hash;
   size_t totalHash = ftype_hash(getType());
-  for (shared_ptr<Formula> formula : andSet) {
-    And *andFormula = dynamic_cast<And *>(formula.get());
-    if (andFormula) {
-      const formula_set *subformulas = andFormula->getSubformulasReference();
-      for (auto x : *subformulas) totalHash += x->hash();
-      andSet_.insert(subformulas->begin(), subformulas->end());
-    } else {
-      andSet_.insert(formula);
-      totalHash += formula->hash();
-    }
+
+  for (shared_ptr<Formula> formula : orSet) {
+    insertFlattenedFormula(formula, totalHash);
   }
   andHash_ = totalHash;
+}
+
+void And::insertFlattenedFormula(const shared_ptr<Formula>& formula, size_t& totalHash) {
+  And *andFormula = dynamic_cast<And *>(formula.get());
+
+  if (andFormula) {
+    const formula_set *subformulas = andFormula->getSubformulasReference();
+    for (auto x : *subformulas) {
+      insertFlattenedFormula(x, totalHash);
+    }
+  } else {
+    andSet_.insert(formula);
+    totalHash += formula->hash();
+  }
 }
 
 And::~And() {
@@ -38,6 +43,8 @@ string And::toString() const {
 
         return a->hash() < b->hash();
     });
+    //cout << "PRINTING AND: " << sortedSet.size() << endl;
+
   string rep = "(";
   for (shared_ptr<Formula> formula : sortedSet) {
     rep += formula->toString() + " & ";
@@ -52,6 +59,16 @@ shared_ptr<Formula> And::negatedNormalForm() {
   formula_set newAndSet(andSet_.size());
   for (shared_ptr<Formula> formula : andSet_) {
     newAndSet.insert(formula->negatedNormalForm());
+  }
+  andSet_ = newAndSet;
+  return shared_from_this();
+}
+
+
+shared_ptr<Formula> And::tailNormalForm() {
+  formula_set newAndSet(andSet_.size());
+  for (shared_ptr<Formula> formula : andSet_) {
+    newAndSet.insert(formula->tailNormalForm());
   }
   andSet_ = newAndSet;
   return shared_from_this();

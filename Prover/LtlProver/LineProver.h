@@ -21,6 +21,7 @@ struct StateAssumps {
 
 struct Obligation {
     StateAssumps assumptions;
+    literal_set parentModel;
     int distance;
     string toString() {
         return to_string(distance) + ": " + assumptions.toString();
@@ -32,6 +33,7 @@ struct StateResult {
     bool success;
     StateAssumps successor;
     literal_set conflict;
+    literal_set model;
 };
 
  struct ObligationComparator {
@@ -58,7 +60,7 @@ class LineProver {
         vector<shared_ptr<Prover>> solvers;
         shared_ptr<Prover> getSolver(int distance);
         void addReason(int distance, literal_set reason);
-        void addReason(const literal_set& reason, int distance);
+        void addReason(const literal_set& reason, int distance, const literal_set& parentModel={});
         unordered_map<string, int> literalNameToIndex;
         unordered_map<int, Literal> indexToLiteral;
         vector<int> literalSetToIndices(const literal_set& literals);
@@ -68,6 +70,8 @@ class LineProver {
 
         void addGlobalReason(const literal_set& reason);
         map<string, int> conflictStore;
+        unordered_map<literal_set, vector<literal_set>, LiteralSetHash, LiteralSetEqual> conflictToReasons;
+
 };
 
 #endif

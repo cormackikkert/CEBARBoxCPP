@@ -48,6 +48,12 @@ shared_ptr<Formula> Box::negatedNormalForm() {
   subformula_ = subformula_->negatedNormalForm();
   return shared_from_this();
 }
+
+
+shared_ptr<Formula> Box::tailNormalForm() {
+    assert (1 == 0);
+}
+
 shared_ptr<Formula> Box::negate() {
   return Diamond::create(modality_, power_, subformula_->negate());
 }

@@ -5,18 +5,26 @@ Or::Or(const formula_set &orSet) {
   size_t totalHash = ftype_hash(getType());
 
   for (shared_ptr<Formula> formula : orSet) {
-    Or *orFormula = dynamic_cast<Or *>(formula.get());
-    if (orFormula) {
-      const formula_set *subformulas = orFormula->getSubformulasReference();
-      for (auto x : *subformulas) totalHash += x->hash();
-      orSet_.insert(subformulas->begin(), subformulas->end());
-    } else {
-      orSet_.insert(formula);
-      totalHash += formula->hash();
-    }
+    insertFlattenedFormula(formula, totalHash);
   }
   orHash_ = totalHash;
 }
+
+void Or::insertFlattenedFormula(const shared_ptr<Formula>& formula, size_t& totalHash) {
+  Or *orFormula = dynamic_cast<Or *>(formula.get());
+
+  if (orFormula) {
+    const formula_set *subformulas = orFormula->getSubformulasReference();
+    for (auto x : *subformulas) {
+      insertFlattenedFormula(x, totalHash);
+    }
+  } else {
+    orSet_.insert(formula);
+    totalHash += formula->hash();
+  }
+}
+
+
 Or::~Or() {
 #if DEBUG_DESTRUCT
   cout << "DESTRUCTING OR" << endl;
@@ -50,6 +58,16 @@ shared_ptr<Formula> Or::negatedNormalForm() {
   formula_set newOrSet;
   for (shared_ptr<Formula> formula : orSet_) {
     newOrSet.insert(formula->negatedNormalForm());
+  }
+  orSet_ = newOrSet;
+  return shared_from_this();
+}
+
+
+shared_ptr<Formula> Or::tailNormalForm() {
+  formula_set newOrSet;
+  for (shared_ptr<Formula> formula : orSet_) {
+    newOrSet.insert(formula->tailNormalForm());
   }
   orSet_ = newOrSet;
   return shared_from_this();

@@ -10,26 +10,6 @@
 
 using namespace std;
 
-struct LiteralSetHash {
-    size_t operator()(const literal_set& assumptions) const {
-        int hash = 0;
-        for (auto x : assumptions) hash += x.hash();
-        return hash;
-    }
-};
-
-struct LiteralSetEqual {
-    bool operator()(const literal_set& assumptions1, const literal_set& assumptions2) const {
-        if (assumptions1.size() != assumptions2.size()) return false;
-        for (auto x : assumptions1) {
-            if (assumptions2.find(x) == assumptions2.end()) {
-                return false;
-            }
-        }
-        return true;
-    }
-};
-
 class ExactSolutionMemo {
 private:
     unordered_set<literal_set, LiteralSetHash, LiteralSetEqual> satSols;

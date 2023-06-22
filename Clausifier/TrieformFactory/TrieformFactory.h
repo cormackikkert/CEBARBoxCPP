@@ -25,6 +25,16 @@ class TrieformFactory {
         const vector<int> &newModality,
         shared_ptr<Trieform> trieParent = shared_ptr<Trieform>());
 
+    static shared_ptr<Trieform> makeTrieKsp(
+        const shared_ptr<Formula> &formula,
+        shared_ptr<Trieform> trieParent = shared_ptr<Trieform>());
+    static shared_ptr<Trieform> makeTrieKsp(
+        const shared_ptr<Formula> &formula, const vector<int> &newModality,
+        shared_ptr<Trieform> trieParent = shared_ptr<Trieform>());
+    static shared_ptr<Trieform> makeTrieKsp(
+        const vector<int> &newModality,
+        shared_ptr<Trieform> trieParent = shared_ptr<Trieform>());
+
     static shared_ptr<Trieform> makeTrieKGlobal(
         const shared_ptr<Formula> &formula,
         shared_ptr<Trieform> trieParent = shared_ptr<Trieform>());

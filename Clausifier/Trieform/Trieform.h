@@ -123,6 +123,7 @@ class Trieform : public enable_shared_from_this<Trieform> {
     virtual void removeTrueAndFalse();
 
     virtual string toString();
+    virtual string toKspString();
 
     static Cache &getCache();
     const FormulaTriple &getClauses();

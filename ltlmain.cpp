@@ -4,12 +4,110 @@
 
 #include "Prover/LtlProver/LineProver.h"
 #include "Parser/ltlsnfLexer.h"
+#include "Parser/ltloriginalLexer.h"
+#include "Parser/ltloriginalBaseVisitor.h"
 #include "Parser/ltlsnfParser.h"
 #include "Parser/ltlsnfBaseListener.h"
 #include "Prover/Literal/Literal.h"
+#include "Formula/Next/Next.h"
+#include "Formula/Always/Always.h"
+#include "Formula/Until/Until.h"
+#include "Formula/Atom/Atom.h"
+#include "Formula/And/And.h"
+#include "Formula/Sometime/Sometime.h"
 #include <antlr4-runtime/antlr4-runtime.h>
 
 using namespace std;
+/*
+class LTLFormulaVisitor : public ltloriginalBaseVisitor {
+public:
+    std::any visitStart(ltloriginalParser::StartContext *ctx) override {
+    return visitLtlFormula(ctx->ltl_formula());
+}
+
+    shared_ptr<Formula> visitLtlFormula(ltloriginalParser::Ltl_formulaContext *ctx) {
+        if (ctx->IDENTIFIER() != nullptr) {
+            return Atom::create(ctx->IDENTIFIER()->getText());
+        }
+        
+        if (ctx->AND() != nullptr) {
+            return And::create({visitLtlFormula(ctx->ltl_formula(0)), visitLtlFormula(ctx->ltl_formula(1))});
+        }
+        else if (ctx->OR() != nullptr) {
+            return Or::create({visitLtlFormula(ctx->ltl_formula(0)), visitLtlFormula(ctx->ltl_formula(1))});
+        }
+        else if (ctx->NOT() != nullptr) {
+            return Not::create(visitLtlFormula(ctx->ltl_formula(0)));
+        }
+        else if (ctx->NEXT() != nullptr) {
+            return Next::create(visitLtlFormula(ctx->ltl_formula(0)));
+        }
+        else if (ctx->ALWAYS() != nullptr) {
+            return Always::create(visitLtlFormula(ctx->ltl_formula(0)));
+        }
+        else if (ctx->SOMETIME() != nullptr) {
+            return Sometime::create(visitLtlFormula(ctx->ltl_formula(0)));
+        }
+        else if (ctx->UNTIL() != nullptr) {
+            return Until::create(visitLtlFormula(ctx->ltl_formula(0)), visitLtlFormula(ctx->ltl_formula(1)));
+        }
+        // By default, we assume the formula is surrounded by parentheses.
+        return visitLtlFormula(ctx->ltl_formula(0));
+    }
+};
+*/
+
+class LTLFormulaVisitor : public ltloriginalBaseVisitor {
+public:
+    std::any visitStart(ltloriginalParser::StartContext *ctx) override {
+        return visitLtlFormula(ctx->ltl_formula());
+    }
+
+    shared_ptr<Formula> visitLtlFormula(ltloriginalParser::Ltl_formulaContext *ctx) {
+        if (ctx->ltl_formula() != nullptr) {
+            // Don't use create method as that does simplifications
+            if (ctx->AND() != nullptr) {
+                return shared_ptr<Formula>(new And({visitLtlFormula(ctx->ltl_formula()), visitLtlTerm(ctx->ltl_term())}));
+            } else if (ctx->OR() != nullptr) {
+                return shared_ptr<Formula>(new Or({visitLtlFormula(ctx->ltl_formula()), visitLtlTerm(ctx->ltl_term())}));
+            } else if (ctx->IMPLIES() != nullptr) {
+                return shared_ptr<Formula>(new Or({visitLtlFormula(ctx->ltl_formula())->negate(), visitLtlTerm(ctx->ltl_term())}));
+                //return shared_ptr<Formula>(new Implies(visitLtlFormula(ctx->ltl_formula()), visitLtlTerm(ctx->ltl_term())));
+            } else if (ctx->IFF() != nullptr) {
+                assert (1 == 0);
+                //return shared_ptr<Formula>(new Equiv(visitLtlFormula(ctx->ltl_formula()), visitLtlTerm(ctx->ltl_term())));
+            }
+        }
+        return visitLtlTerm(ctx->ltl_term());
+    }
+
+    shared_ptr<Formula> visitLtlTerm(ltloriginalParser::Ltl_termContext *ctx) {
+        if (ctx->ltl_term() != nullptr && ctx->UNTIL() != nullptr) {
+            return Until::create(visitLtlTerm(ctx->ltl_term()), visitLtlFactor(ctx->ltl_factor()));
+        }
+        return visitLtlFactor(ctx->ltl_factor());
+    }
+
+    shared_ptr<Formula> visitLtlFactor(ltloriginalParser::Ltl_factorContext *ctx) {
+        if (ctx->IDENTIFIER() != nullptr) {
+            return Atom::create(ctx->IDENTIFIER()->getText());
+        } else if (ctx->NOT() != nullptr) {
+            return Not::create(visitLtlFactor(ctx->ltl_factor()));
+        } else if (ctx->NEXT() != nullptr) {
+            return Next::create(visitLtlFactor(ctx->ltl_factor()));
+        } else if (ctx->ALWAYS() != nullptr) {
+            return Always::create(visitLtlFactor(ctx->ltl_factor()));
+        } else if (ctx->SOMETIME() != nullptr) {
+            return Sometime::create(visitLtlFactor(ctx->ltl_factor()));
+        } else if (ctx->ltl_formula() != nullptr) {
+            return visitLtlFormula(ctx->ltl_formula());
+        }
+        // By default, we assume the formula is surrounded by parentheses.
+        return visitLtlFactor(ctx->ltl_factor());
+    }
+};
+
+
 
 class LtlListener : public ltlsnfBaseListener {
 private:
@@ -92,14 +190,35 @@ public:
   }
 };
 
+
 int main(int argc, char **argv) {
-  // Read input formula from file
+  // Validate input arguments
   if (argc != 3 || std::string(argv[1]) != "-f") {
     std::cerr << "Please provide a filename using the -f option." << std::endl;
     return 1;
   }
 
-  const std::string filename = argv[2];
+  // Read ltl and convert to tail normal form
+  std::ifstream inputFile(argv[2]);
+  antlr4::ANTLRInputStream input(inputFile);
+  ltloriginalLexer lexer(&input);
+  antlr4::CommonTokenStream tokens(&lexer);
+  ltloriginalParser parser(&tokens);
+
+  ltloriginalParser::StartContext* tree = parser.start();
+  LTLFormulaVisitor visitor;
+  std::any result = visitor.visitStart(tree);
+  auto formula = std::any_cast<std::shared_ptr<Formula>>(result);
+  formula = formula->negatedNormalForm();
+  cout << "NNF: " << formula->toString() << endl;
+  formula = formula->tailNormalForm();
+  cout << "TNF: " << formula->toString() << endl;
+  formula = And::create({formula, Sometime::create(Atom::create("tail"))});
+
+  // Write tail normal form to a temporary file
+  std::ofstream tailFormFile ("tail.ltl");
+  tailFormFile << formula->toString();
+  tailFormFile.close();
 
   // Get the path to the executable
   std::string programPath = argv[0];
@@ -109,58 +228,49 @@ int main(int argc, char **argv) {
   // Construct the full path to ltl2snf executable
   std::string ltl2snfPath = executablePath + "ltl2snf";
 
-  // Read input formula from file
-  std::string command =  ltl2snfPath + " -aprenex -prenex -reuse_renaming -simp -ple -i " + filename + " -o simplified.out";
+  // Run ltl2snf on the temporary file
+  std::string command = ltl2snfPath + "  -simp -ple -i tail.ltl -o simplified.ltl";
   int exitCode = std::system(command.c_str());
   if (exitCode != 0) {
     std::cerr << "Failed to execute ltl2snf program." << std::endl;
     return 1;
   }
 
-  std::ifstream inputFile("simplified.out");
-  if (!inputFile.is_open()) {
+  // Read the generated simplified formula
+  std::ifstream simplifiedInputFile("simplified.ltl");
+  if (!simplifiedInputFile.is_open()) {
     std::cerr << "Failed to open input file." << std::endl;
     return 1;
   }
 
-std::string inputFormula;
-std::string line;
-while (std::getline(inputFile, line)) {
-  inputFormula += line; // Append the line to the formula string
-}
-inputFile.close();
+  std::string simplifiedFormula;
+  std::string line;
+  while (std::getline(simplifiedInputFile, line)) {
+    simplifiedFormula += line; // Append the line to the formula string
+  }
+  simplifiedInputFile.close();
 
   // Create ANTLR input stream
-  antlr4::ANTLRInputStream input(inputFormula);
+  antlr4::ANTLRInputStream inputSimplified(simplifiedFormula);
 
   // Create lexer
-  ltlsnfLexer lexer(&input);
-  antlr4::CommonTokenStream tokens(&lexer);
+  ltlsnfLexer lexerSimplified(&inputSimplified);
+  antlr4::CommonTokenStream tokensSimplified(&lexerSimplified);
 
   // Create parser
-  ltlsnfParser parser(&tokens);
+  ltlsnfParser parserSimplified(&tokensSimplified);
 
   // Parse the formula using MyListener
   LtlListener listener;
-  antlr4::tree::ParseTreeWalker::DEFAULT.walk(&listener, parser.formula());
-  cout << listener.getFormulaTriple().toString() << endl;
+  antlr4::tree::ParseTreeWalker::DEFAULT.walk(&listener, parserSimplified.formula());
 
-  // Get the parsed formula triple
-  /*
-  LtlFormulaTriple formulaTriple = listener.getFormulaTriple();
-
-  // Access and manipulate the data structure as needed
-  const clause_set& clauses = formulaTriple.getClauses();
-  const ltl_clause_set& stepClauses = formulaTriple.getStepClauses();
-  const ltl_clause_set& eventualityClauses = formulaTriple.getEventualityClauses();
-  */
-
-
-  LineProver lineProver (listener.getFormulaTriple(), *listener.getInitialLiteral());
+  // Create LineProver with parsed formula triple and initial literal
+  LineProver lineProver = LineProver(listener.getFormulaTriple(), *listener.getInitialLiteral());
   if (lineProver.isSat()) {
-      cout << "SAT" << endl;
+    std::cout << "SAT" << std::endl;
   } else {
-      cout << "UNSAT" << endl;
+    std::cout << "UNSAT" << std::endl;
   }
+
   return 0;
 }

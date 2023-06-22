@@ -1,17 +1,21 @@
 #include "LineProver.h"
 
 LineProver::LineProver(LtlFormulaTriple formulaTriple, Literal initialLiteral)
-    : formulaTriple(formulaTriple), initialLiteral(initialLiteral) {}
+    : formulaTriple(formulaTriple), initialLiteral(initialLiteral) {
+    }
 
 LineProver::~LineProver() {}
 
 bool LineProver::isSat() {
+    //formulaTriple.addStepClause({Literal("$tail", true)}, Literal("$false", true));
+    cout << "WTF:" << endl;
+    cout << formulaTriple.toString() << endl;
     while (pq.size()) pq.pop();
     ;
     for (int k = 0;; ++k) {
         conflictStore.clear();
         cout << "LEVEL: " << k << endl;
-        pq.push({{literal_set{initialLiteral}, {}}, k});
+        pq.push({{literal_set{initialLiteral}, {}}, {}, k});
         while (!pq.empty()) {
             auto state = pq.top();
             pq.pop();
@@ -19,45 +23,53 @@ bool LineProver::isSat() {
             // get the last state
             // auto state = states.back();
             // states.pop_back();
-            cout << "TESTING OBLIGATION: " << state.toString() << endl;
+            //cout << endl;
+            //cout << endl;
+            //cout << "TESTING OBLIGATION: " << state.toString() << endl;
             StateResult result = solveState(state, k);
 
             // cout << endl;
             if (result.success) {
-                cout << "SUCCESS" << endl;
                 if (state.distance == 0) {
                     return true;
                 }
-                pq.push({state.assumptions, state.distance});
-                pq.push({result.successor, state.distance - 1});
+                pq.push({state.assumptions, state.parentModel, state.distance});
+                pq.push({result.successor, result.model, state.distance - 1});
             } else {
                 if (result.conflict.size() == 0) {
-                    cout << "UNSAT FROM EMPTY CLAUSE" << endl;
                     return false;
                 }
-                addReason(result.conflict, state.distance);
+                addReason(result.conflict, state.distance, state.parentModel);
                 // obligation rescheduling
+                /*
                 if (state.distance + 1 < k)
-                    pq.push({state.assumptions, state.distance + 1});
+                    pq.push({state.assumptions, state.parentModel, state.distance + 1});
+                */
             }
         }
         for (int i = 2; i <= k + 1; ++i) {
             // Clause push from reasons[i-1] => reason[i]
             for (vector<int> reason : reasons[i - 1].get_all()) {
-                cout << "BEFORE REASON: " << reason.size() << endl;
                 literal_set conflict = indicesToLiteralSet(reason);
                 Solution sol = getSolver(i)->solve(conflict);
                 if (!sol.satisfiable) {
-                    cout << "REASON: " << reason.size() << endl;
+                    //cout << "REASON: " << reason.size() << endl;
                     assert (reasons[i-1].contains_remove(reason));
                     if (i == k+1) {
-                        cout << "ADDING GLOBAL REASON" << endl;
+                        //cout << "ADDING GLOBAL REASON" << endl;
                         addGlobalReason(conflict);
                     } else {
+                        //cout << "CLAUSE PUSHED: " << litsetString(conflict) << endl;
                         reasons[i].insert(reason);
+                        reasons[i-1].contains_remove(reason);
+
+                        for (literal_set reason : conflictToReasons[conflict])
+                        {
+                            solvers[i]->addClause(reason);
+                        }
                     }
                 }
-                solvers[i]->addClause(indicesToLiteralSet(reason));
+                //solvers[i]->addClause(indicesToLiteralSet(reason));
             }
             // Check if two layers are equal
             // check if reason is the same as previous
@@ -158,7 +170,9 @@ vector<int> LineProver::literalSetToIndices(const literal_set& literals) {
     return result;
 }
 
-void LineProver::addReason(const literal_set& conflict, int distance) {
+void LineProver::addReason(const literal_set& conflict, int distance, const literal_set& parentModel) {
+    //literal_set newConflict = conflict;
+    //newConflict.insert(Literal("$goal", true));
     vector<int> reasonRepresentation = literalSetToIndices(conflict);
     // Check if adding a stronger reason
     // Needed to preserve monotonicity
@@ -167,9 +181,24 @@ void LineProver::addReason(const literal_set& conflict, int distance) {
     }
 
     // Otherwise add the clause normally
+    //Literal tail = Literal("$tail", true);
     reasons[distance].insert(literalSetToIndices(conflict));
     for (literal_set learntClause : solvers[0]->createLtlReasons(conflict)) {
+        //if (learntClause.find(~tail) == learntClause.end()) learntClause.insert(tail); 
+        literal_set neg; 
+        for (auto x : learntClause) neg.insert(~x);
+        Solution sol = solvers[0]->solve(neg);
+
+        auto it = parentModel.begin();
+        while (sol.satisfiable && (it != parentModel.end())) {
+            cout << "ADDING: " << it->toString() << endl;
+            neg.insert(*it);
+            //learntClause.insert(~(*it));
+            sol = solvers[0]->solve(neg);
+            it++;
+        }
         cout << "LEARN REASON: " << litsetString(learntClause) << endl;
+        conflictToReasons[conflict].push_back(learntClause);
         for (int i = 1; i <= distance + 1; ++i) {
             solvers[i]->addClause(learntClause);
         }
@@ -182,10 +211,18 @@ StateResult LineProver::solveState(Obligation& obligation, int k) {
     literal_set assumptions = obligation.assumptions.assumptions;
     assumptions.insert(obligation.assumptions.eventualities.begin(),
                        obligation.assumptions.eventualities.end());
+    
+    //if (k == 0) assumptions.insert(Literal("$goal", true));
+
+    //cout << "SOLVING WITH ASS: " << k << " -> " << litsetString(assumptions) << endl;
 
     Solution solution = solver->solve(assumptions);
     if (!solution.satisfiable) {
-        // cout << "UNSAT: " << litsetString(solution.conflict) << endl;
+        if (solution.conflict.empty()) {
+            // cast solver to minisatProver
+            //MinisatProver prover = dynamic_cast<MinisatProver*>(solver.get());
+            //prover.calcSolver->toDimacs("dimacs.out");
+        }
         // solver->reduce_conflict(solution.conflict);
 
         // Clause pushing
@@ -206,27 +243,21 @@ StateResult LineProver::solveState(Obligation& obligation, int k) {
             obligation.distance = newDistance;
         }
         */
-        return {false, {}, solution.conflict};
+        return {false, {}, solution.conflict, {}};
     } else {
         // Create successor state
-        /*
         auto model = solver->getModel();
-        cout << "MODEL: " << endl;
-        for (auto literal : model) {
-            cout << literal.toString() << " ";
-        }
-        cout << endl;
-        */
-        // cout << "MODEL: " << litsetString(solver->getModel()) << endl;
+        //cout << "INHERE MODEL: "  << litsetString(model) << endl;        // cout << "MODEL: " << litsetString(solver->getModel()) << endl;
         auto successorAssumps = solver->getLtlSuccessorAssumps(
             obligation.assumptions.eventualities);
-        return {true, {successorAssumps.first, successorAssumps.second}, {}};
+        return {true, {successorAssumps.first, successorAssumps.second}, {}, model};
     }
 }
 
 void LineProver::addReason(int distance, literal_set reason) {
+    assert (1 == 0);
     shared_ptr<Prover> solver = getSolver(distance);
-    solver->addClause(reason);
+    //solver->addClause(reason);
 }
 
 shared_ptr<Prover> LineProver::getSolver(int distance) {
@@ -238,6 +269,8 @@ shared_ptr<Prover> LineProver::getSolver(int distance) {
         if (distance == 0) {
             // Must have all eventualities fulfilled
             solvers[distance]->makeLtlTail();
+            //cout << "REE: " << endl;
+            cout << formulaTriple.toString() << endl;
         }
     }
     return solvers[distance];

@@ -1,0 +1,1 @@
+(~tail & (sometime tail ) & (next p) & (~(~tail U ~p)))

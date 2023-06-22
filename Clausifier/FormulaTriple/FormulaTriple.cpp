@@ -112,13 +112,13 @@ vector<string> FormulaTriple::toStringComponents() const {
   }
 
   for (ModalClause boxClause : boxClauses) {
-    components.push_back(boxClause.left->toString() + "->[" +
+    components.push_back(boxClause.left->toString() + " -> [" +
                          to_string(boxClause.modality) + "]" +
                          boxClause.right->toString());
   }
 
   for (ModalClause diamondClause : diamondClauses) {
-    components.push_back(diamondClause.left->toString() + "-><" +
+    components.push_back(diamondClause.left->toString() + " -> <" +
                          to_string(diamondClause.modality) + ">" +
                          diamondClause.right->toString());
   }

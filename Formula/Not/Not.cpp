@@ -14,6 +14,7 @@ string Not::toString() const { return "~" + subformula_->toString(); }
 FormulaType Not::getType() const { return FNot; }
 
 shared_ptr<Formula> Not::negatedNormalForm() { return subformula_->negate(); }
+shared_ptr<Formula> Not::tailNormalForm() { return subformula_->tailNormalForm(); }
 shared_ptr<Formula> Not::negate() { return subformula_->negatedNormalForm(); }
 
 shared_ptr<Formula> Not::simplify() {

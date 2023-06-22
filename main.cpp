@@ -47,6 +47,7 @@ static struct argp_option options[] = {
     {"localReduction", 'l', 0, 0, "Perform a local reduction into K"},
     {"globalReduction", 'g', 0, 0, "Perform a global reduction into K"},
     {"verbose", 'v', 0, 0, "Verbosity."},
+    {"ksp", 'k', 0, 0, "Use KSP."},
     {0, 0, 0, 0, 0, 0}};
 
 struct arguments_struct {
@@ -94,6 +95,9 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             break;
         case 'g':
             arguments->settings.globalReduction = true;
+            break;
+        case 'k':
+            arguments->settings.useKsp = true;
             break;
         case ARGP_KEY_ARG:
             return 0;

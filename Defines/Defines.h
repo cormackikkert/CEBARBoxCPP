@@ -31,6 +31,7 @@ struct SolverConstraints {
     bool oneSat = false;
     bool localReduction = false;
     bool globalReduction = false;
+    bool useKsp = false;
 };
 
 #endif

@@ -20,6 +20,7 @@ class And : public Formula, public enable_shared_from_this<And> {
 private:
   formula_set andSet_;
   int andHash_;
+  void insertFlattenedFormula(const shared_ptr<Formula>& formula, size_t& totalHash);
 
 public:
   And(const formula_set &andSet);
@@ -35,6 +36,7 @@ public:
   FormulaType getType() const;
 
   shared_ptr<Formula> negatedNormalForm();
+    shared_ptr<Formula> tailNormalForm();
   shared_ptr<Formula> negate();
   shared_ptr<Formula> simplify();
   shared_ptr<Formula> modalFlatten();

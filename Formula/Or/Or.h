@@ -19,6 +19,7 @@ class Or : public Formula, public enable_shared_from_this<Or> {
 private:
   formula_set orSet_;
   int orHash_;
+  void insertFlattenedFormula(const shared_ptr<Formula>& formula, size_t& totalHash);
 
 public:
   Or(const formula_set &orSet);
@@ -34,6 +35,7 @@ public:
   FormulaType getType() const;
 
   shared_ptr<Formula> negatedNormalForm();
+  shared_ptr<Formula> tailNormalForm();
   shared_ptr<Formula> negate();
   shared_ptr<Formula> simplify();
   shared_ptr<Formula> modalFlatten();

@@ -484,6 +484,38 @@ string Trieform::toString() {
     return trieString;
 }
 
+
+string Trieform::toKspString() {
+    vector<string> clauseComponents = clauses.toStringComponents();
+    sort(clauseComponents.begin(), clauseComponents.end());
+
+    string level;
+    for (int mod : modality) {
+        level += "[" + to_string(mod) + "]";
+    }
+
+    string clauses = "";
+    for (int i = 0; i < clauseComponents.size() ; ++i) {
+        clauses += "(" + clauseComponents[i] + ") & ";
+    }
+    // remove final ) &
+    if (clauses.size() > 0) {
+        clauses = clauses.substr(0, clauses.size() - 3);
+    }
+
+    string trieString = level + "(" + clauses + ").";
+    for (auto modTrie : subtrieMap) {
+        if (modTrie.second == shared_from_this()) continue;
+        if (trieString.size() > 0) {
+            trieString += "\n" + modTrie.second->toKspString();
+        } else {
+            trieString = modTrie.second->toKspString();
+        }
+    }
+    trieString.erase(remove(trieString.begin(), trieString.end(), '$'), trieString.end());
+    return trieString;
+}
+
 void Trieform::reduceClauses() {
     if (!ensureUniqueModalClauseLhs) {
         combineBoxLeft();

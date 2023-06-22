@@ -90,6 +90,7 @@ void Prover::makeLtlTail() {
     //cout << "Adding clauses to make a tail: " << endl;
     //cout << "No next state eventualities" << endl;
 
+    /*
     literal_set boxSteps;
     for (auto ltlStepClause : ltlStepImplications) {
         for (auto clause : negatedClauses(ltlStepClause.second)) {
@@ -103,7 +104,7 @@ void Prover::makeLtlTail() {
     for (auto ltlStepClause : ltlStepImplications) {
         for (auto clause : ltlStepClause.second) {
             bool isBoxStep = false;
-            cout << "CHECKING: " << litsetString(clause) << " " << ltlStepClause.first.toString() << endl;
+            // cout << "CHECKING: " << litsetString(clause) << " " << ltlStepClause.first.toString() << endl;
             for (auto x : clause) if (boxSteps.find(~x) != boxSteps.end()) isBoxStep = true;
             if (isBoxStep) {
                 boxSteps2Away.insert(~ltlStepClause.first);
@@ -116,6 +117,7 @@ void Prover::makeLtlTail() {
     cout << "BOX STEPS: " << litsetString(boxSteps) << endl;
 
     for (auto ltlStepClause : ltlStepImplications) {
+        if (ltlStepClause.first == Literal("$false", true)) continue;
         for (auto clause : negatedClauses(ltlStepClause.second)) {
             bool isBox = false;
             for (auto lit : clause) if (boxSteps.find(lit) != boxSteps.end()) isBox = true;
@@ -139,6 +141,8 @@ void Prover::makeLtlTail() {
             addClause(clause);
         }
     }
+    */
+    addClause({Literal("tail", true)});
 }
 
 pair<literal_set, literal_set> Prover::getLtlSuccessorAssumps(

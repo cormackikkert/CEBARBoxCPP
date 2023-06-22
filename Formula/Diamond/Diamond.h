@@ -10,6 +10,7 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <cassert>
 
 using namespace std;
 
@@ -33,6 +34,7 @@ public:
   FormulaType getType() const;
 
   shared_ptr<Formula> negatedNormalForm();
+  shared_ptr<Formula> tailNormalForm();
   shared_ptr<Formula> negate();
   shared_ptr<Formula> simplify();
   shared_ptr<Formula> modalFlatten();

@@ -72,5 +72,9 @@ shared_ptr<Trieform> TrieformFactory::makeTrie(
     } else if (constraints.euclidean) {
         return makeTrieK5(newFormula);
     }
+
+    if (constraints.useKsp) {
+        return makeTrieKsp(newFormula);
+    }
     return makeTrieK(newFormula);
 }

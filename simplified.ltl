@@ -1,0 +1,1 @@
+and([always(or([not(tail),not(nnv0)])),always(or([not(nnv0),sometime(tail)])),or([nnv0])]).
