@@ -142,7 +142,34 @@ void Prover::makeLtlTail() {
         }
     }
     */
+    //cout << "All eventualities that will be triggered all also fulfilled" << endl;
+    
     addClause({Literal("tail", true)});
+
+    for (auto eventuality : eventualityToLit) {
+        //cout << clauseToString({~eventuality.first, eventuality.second}) << endl;
+        addClause({~eventuality.first, eventuality.second});
+    }
+    // All eventualities that will be triggered all also fulfilled
+    //cout << "All eventualities that will be triggered are also fulfilled" << endl;
+    cout << "TAIL CLAUSE" << endl;
+    for (auto ltlEventualityImplication : ltlEventualityImplications) {
+        for (auto clause : negatedClauses(ltlEventualityImplication.second)) {
+            cout << clauseToString(clause) << endl;
+            addClause(clause);
+        }
+    }
+
+
+    for (auto ltlStepClause : ltlStepImplications) {
+        if (ltlStepClause.first == Literal("$false", true)) continue;
+        for (auto clause : negatedClauses(ltlStepClause.second)) {
+            //if ((clause.size() == 1) && (boxSteps.find(*clause.begin()) != boxSteps.end())) continue;
+            cout << clauseToString(clause) << endl;
+            addClause(clause);
+        }
+    }
+
 }
 
 pair<literal_set, literal_set> Prover::getLtlSuccessorAssumps(
@@ -152,14 +179,15 @@ pair<literal_set, literal_set> Prover::getLtlSuccessorAssumps(
     calculateTriggeredLtlClauses(ltlStepImplications, stepTriggered);
     calculateTriggeredLtlClauses(ltlEventualityImplications, eventualities);
     // remove fulfilled eventualities
-    
+   
+
     std::vector<Literal> elementsToRemove;
     for (const auto& eventuality : eventualities) {
         if (currentModel.find(eventualityToLit.at(eventuality)) != currentModel.end()) {
             elementsToRemove.push_back(eventuality);
         }
     }
-
+    
     for (const auto& element : elementsToRemove) {
         eventualities.erase(element);
     }

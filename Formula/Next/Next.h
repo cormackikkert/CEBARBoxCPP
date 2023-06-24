@@ -3,6 +3,7 @@
 
 #include "../../Defines/Defines.h"
 #include "../FEnum/FEnum.h"
+#include "../WeakNext/WeakNext.h"
 #include "../Formula/Formula.h"
 #include "../Atom/Atom.h"
 #include "../And/And.h"

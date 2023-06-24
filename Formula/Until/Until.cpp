@@ -24,6 +24,7 @@ shared_ptr<Formula> Until::negatedNormalForm() {
 shared_ptr<Formula> Until::tailNormalForm() { 
     auto tail = Atom::create("tail");
     left_ = And::create({Not::create(tail), left_->tailNormalForm()});
+    //left_ = And::create({Atom::create("true"), left_->tailNormalForm()});
     right_ = right_->tailNormalForm();
     return shared_from_this(); 
 }

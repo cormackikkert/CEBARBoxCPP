@@ -90,6 +90,8 @@ public:
 
     shared_ptr<Formula> visitLtlFactor(ltloriginalParser::Ltl_factorContext *ctx) {
         if (ctx->IDENTIFIER() != nullptr) {
+            // string text = ctx->IDENTIFIER()->getText();
+            // Don't want to create TRUE or FALSE atoms as they print differently
             return Atom::create(ctx->IDENTIFIER()->getText());
         } else if (ctx->NOT() != nullptr) {
             return Not::create(visitLtlFactor(ctx->ltl_factor()));
@@ -209,6 +211,7 @@ int main(int argc, char **argv) {
   LTLFormulaVisitor visitor;
   std::any result = visitor.visitStart(tree);
   auto formula = std::any_cast<std::shared_ptr<Formula>>(result);
+  cout << "ORIG: " << formula->toString() << endl;
   formula = formula->negatedNormalForm();
   cout << "NNF: " << formula->toString() << endl;
   formula = formula->tailNormalForm();
@@ -229,7 +232,7 @@ int main(int argc, char **argv) {
   std::string ltl2snfPath = executablePath + "ltl2snf";
 
   // Run ltl2snf on the temporary file
-  std::string command = ltl2snfPath + "  -simp -ple -i tail.ltl -o simplified.ltl";
+  std::string command = ltl2snfPath + " -simp -i tail.ltl -o simplified.ltl";
   int exitCode = std::system(command.c_str());
   if (exitCode != 0) {
     std::cerr << "Failed to execute ltl2snf program." << std::endl;

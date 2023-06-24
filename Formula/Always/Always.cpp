@@ -14,14 +14,14 @@ string Always::toString() const { return "(always " + subformula_->toString() + 
 FormulaType Always::getType() const { return FAlways; }
 
 shared_ptr<Formula> Always::negatedNormalForm() { 
-    subformula_->negatedNormalForm(); 
+    subformula_ = subformula_->negatedNormalForm(); 
     return shared_from_this();
 }
 
 
 shared_ptr<Formula> Always::tailNormalForm() { 
-    auto tail = Atom::create("tail");
-    return Release::create(tail, subformula_->tailNormalForm()); 
+    //auto tail = Atom::create("tail");
+    return Release::create(Atom::create("tail"), subformula_->tailNormalForm()); 
 }
 shared_ptr<Formula> Always::negate() { 
   return Sometime::create(subformula_->negate());

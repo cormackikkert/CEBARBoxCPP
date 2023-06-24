@@ -1,5 +1,5 @@
 CC = g++
-CFLAGS = -std=c++17 -Wall -g -mavx2 -fopenmp -static -I/usr/local/include/antlr4-runtime
+CFLAGS = -std=c++17 -Wall -g -O3 -mavx2 -fopenmp -static -I/usr/local/include/antlr4-runtime
 LIBS = -L/usr/local/lib -lminisat -L./Prover/IpasirProver -lipasir -lantlr4-runtime -I/usr/local/include/antlr4-runtime
 
 SRCDIR = .

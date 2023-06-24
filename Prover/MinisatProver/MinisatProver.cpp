@@ -45,7 +45,10 @@ modal_names_map MinisatProver::prepareSAT(FormulaTriple clauses,
 
 void MinisatProver::prepareLtlfSat(LtlFormulaTriple clauses, Literal initialLiteral, bool succInSat) {
   createOrGetVariable(initialLiteral.getName(), Minisat::lbool((uint8_t)0));
+  //createOrGetVariable("$E~tail", Minisat::lbool((uint8_t)1));
   createOrGetVariable("tail", Minisat::lbool((uint8_t)1));
+
+
   prepareLtlClauses(clauses.getStepClauses(), ltlStepImplications, false, succInSat);
   prepareLtlClauses(clauses.getEventualityClauses(), ltlEventualityImplications, true, succInSat);
   prepareFalse();
@@ -148,7 +151,7 @@ void MinisatProver::prepareLtlClauses(ltl_clause_list modal_clauses,
         literal_set classical {eRight};
         for (auto x : clause.left) classical.insert(~x);
         addClause(classical);
-
+    
         createLtlImplication({eRight, ~clause.right}, eRight, ltlImplications, succInSat);
       } else {
             createOrGetVariable(clause.right.getName(), Minisat::lbool((uint8_t)!clause.right.getPolarity()));

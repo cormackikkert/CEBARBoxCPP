@@ -7,9 +7,8 @@ LineProver::LineProver(LtlFormulaTriple formulaTriple, Literal initialLiteral)
 LineProver::~LineProver() {}
 
 bool LineProver::isSat() {
-    //formulaTriple.addStepClause({Literal("$tail", true)}, Literal("$false", true));
-    cout << "WTF:" << endl;
-    cout << formulaTriple.toString() << endl;
+    formulaTriple.addStepClause({Literal("tail", true)}, Literal("$false", true));
+    //cout << formulaTriple.toString() << endl;
     while (pq.size()) pq.pop();
     ;
     for (int k = 0;; ++k) {
@@ -25,7 +24,6 @@ bool LineProver::isSat() {
             // states.pop_back();
             //cout << endl;
             //cout << endl;
-            //cout << "TESTING OBLIGATION: " << state.toString() << endl;
             StateResult result = solveState(state, k);
 
             // cout << endl;
@@ -37,48 +35,57 @@ bool LineProver::isSat() {
                 pq.push({result.successor, result.model, state.distance - 1});
             } else {
                 if (result.conflict.size() == 0) {
+                    cout << "UNSAT BY EMPTY CLAUSE" << endl;
                     return false;
                 }
                 addReason(result.conflict, state.distance, state.parentModel);
                 // obligation rescheduling
-                /*
                 if (state.distance + 1 < k)
                     pq.push({state.assumptions, state.parentModel, state.distance + 1});
-                */
             }
         }
-        for (int i = 2; i <= k + 1; ++i) {
-            // Clause push from reasons[i-1] => reason[i]
-            for (vector<int> reason : reasons[i - 1].get_all()) {
+
+        // states that cannot reach goal in <= i steps;
+        set<vector<int>> rollingIntersection = reasons[1].get_all();
+        for (int i = 2; i <= k ; ++i) {
+            // First clause propagate from i-1 to i
+            set<vector<int>> currentReasons = reasons[i].get_all();
+
+            set<vector<int>> difference;
+            set_difference(rollingIntersection.begin(),
+                           rollingIntersection.end(), currentReasons.begin(), currentReasons.end(),
+                           inserter(difference, difference.begin()));
+            
+            bool previousIsSubset = true;
+            for (vector<int> reason : difference) {
+                // Reason cannot reach goal in <= i-1 steps
+                // Test if it can reach goal in i steps
                 literal_set conflict = indicesToLiteralSet(reason);
                 Solution sol = getSolver(i)->solve(conflict);
                 if (!sol.satisfiable) {
-                    //cout << "REASON: " << reason.size() << endl;
-                    assert (reasons[i-1].contains_remove(reason));
                     if (i == k+1) {
-                        //cout << "ADDING GLOBAL REASON" << endl;
                         addGlobalReason(conflict);
                     } else {
-                        //cout << "CLAUSE PUSHED: " << litsetString(conflict) << endl;
                         reasons[i].insert(reason);
-                        reasons[i-1].contains_remove(reason);
-
-                        for (literal_set reason : conflictToReasons[conflict])
-                        {
-                            solvers[i]->addClause(reason);
-                        }
                     }
+                } else {
+                    previousIsSubset = false;
                 }
-                //solvers[i]->addClause(indicesToLiteralSet(reason));
             }
-            // Check if two layers are equal
-            // check if reason is the same as previous
-            // reasons[i-1] is empty => reasons[i] = reasons[i-1]
-            // reasons[0] isn't initialised, so start with i=2
-            if (reasons[i - 1].size() == 0) {
-                cout << "UNSAT BY INVARIANT" << endl;
+
+            if (previousIsSubset) {
+                cout << "UNSAT BY INVARIANT: " << i-1 << " = " << i << endl;
                 return false;
             }
+
+            currentReasons = reasons[i].get_all();
+            // rollingIntersection is intersection with currentReasons
+            set<vector<int>> intersection;
+            set_intersection(currentReasons.begin(), currentReasons.end(),
+                             rollingIntersection.begin(),
+                             rollingIntersection.end(),
+                             inserter(intersection, intersection.begin()));
+            rollingIntersection = intersection;
         }
     }
 }
@@ -110,10 +117,10 @@ void LineProver::removeObligationsMatchingConflict(const literal_set& conflict,
                 break;
             }
         }
-
-        if (!isSuperset || (obligation.distance > distance)) {
+        
+        if (!isSuperset || (obligation.distance != distance)) {
             updatedPq.push(obligation);
-        }
+        }     
     }
 
     pq = updatedPq;  // Update pq with the filtered obligations
@@ -171,37 +178,13 @@ vector<int> LineProver::literalSetToIndices(const literal_set& literals) {
 }
 
 void LineProver::addReason(const literal_set& conflict, int distance, const literal_set& parentModel) {
-    //literal_set newConflict = conflict;
-    //newConflict.insert(Literal("$goal", true));
-    vector<int> reasonRepresentation = literalSetToIndices(conflict);
-    // Check if adding a stronger reason
-    // Needed to preserve monotonicity
-    for (int i = 0; i <= distance; ++i) {
-        if (reasons[i].contains_remove(reasonRepresentation)) break;
-    }
-
     // Otherwise add the clause normally
-    //Literal tail = Literal("$tail", true);
     reasons[distance].insert(literalSetToIndices(conflict));
-    for (literal_set learntClause : solvers[0]->createLtlReasons(conflict)) {
-        //if (learntClause.find(~tail) == learntClause.end()) learntClause.insert(tail); 
-        literal_set neg; 
-        for (auto x : learntClause) neg.insert(~x);
-        Solution sol = solvers[0]->solve(neg);
+    removeObligationsMatchingConflict(conflict, distance);
 
-        auto it = parentModel.begin();
-        while (sol.satisfiable && (it != parentModel.end())) {
-            cout << "ADDING: " << it->toString() << endl;
-            neg.insert(*it);
-            //learntClause.insert(~(*it));
-            sol = solvers[0]->solve(neg);
-            it++;
-        }
-        cout << "LEARN REASON: " << litsetString(learntClause) << endl;
-        conflictToReasons[conflict].push_back(learntClause);
-        for (int i = 1; i <= distance + 1; ++i) {
-            solvers[i]->addClause(learntClause);
-        }
+    for (literal_set learntClause : solvers[0]->createLtlReasons(conflict)) {
+        //cout << "LEARN REASON: " << distance+1 << " = " << litsetString(learntClause) << endl;
+        solvers[distance+1]->addClause(learntClause);
     }
 }
 
@@ -250,6 +233,7 @@ StateResult LineProver::solveState(Obligation& obligation, int k) {
         //cout << "INHERE MODEL: "  << litsetString(model) << endl;        // cout << "MODEL: " << litsetString(solver->getModel()) << endl;
         auto successorAssumps = solver->getLtlSuccessorAssumps(
             obligation.assumptions.eventualities);
+        //cout << "SUCCESSOR ASSUMPS: " << litsetString(successorAssumps.first) << litsetString(successorAssumps.second) << endl;
         return {true, {successorAssumps.first, successorAssumps.second}, {}, model};
     }
 }

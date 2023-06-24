@@ -14,14 +14,18 @@ string Next::toString() const { return "(next " + subformula_->toString() + ")";
 FormulaType Next::getType() const { return FNext; }
 
 shared_ptr<Formula> Next::negatedNormalForm() {
-    subformula_->negatedNormalForm(); 
+    subformula_ = subformula_->negatedNormalForm(); 
     return shared_from_this();
 }
 shared_ptr<Formula> Next::tailNormalForm() {
     auto tail = Atom::create("tail");
     return And::create({Not::create(tail), Next::create(subformula_->tailNormalForm())});
 }
-shared_ptr<Formula> Next::negate() { return subformula_->negate(); }
+
+// Must return weak next in LTL-f mode
+shared_ptr<Formula> Next::negate() { 
+    return WeakNext::create(subformula_->negate());
+}
 
 shared_ptr<Formula> Next::simplify() {
   subformula_ = subformula_->simplify();

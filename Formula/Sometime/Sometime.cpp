@@ -14,13 +14,14 @@ string Sometime::toString() const { return "(sometime " + subformula_->toString(
 FormulaType Sometime::getType() const { return FSometime; }
 
 shared_ptr<Formula> Sometime::negatedNormalForm() { 
-    subformula_->negatedNormalForm(); 
+    subformula_ = subformula_->negatedNormalForm(); 
     return shared_from_this();
 }
 
 shared_ptr<Formula> Sometime::tailNormalForm() { 
     auto tail = Atom::create("tail");
-    return Until::create(Not::create(tail), subformula_->tailNormalForm()); 
+    // T U p better than !tail U p
+    return Until::create(Atom::create("true"), subformula_->tailNormalForm()); 
 }
 
 
