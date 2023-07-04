@@ -152,10 +152,10 @@ void Prover::makeLtlTail() {
     }
     // All eventualities that will be triggered all also fulfilled
     //cout << "All eventualities that will be triggered are also fulfilled" << endl;
-    cout << "TAIL CLAUSE" << endl;
+    //cout << "TAIL CLAUSE" << endl;
     for (auto ltlEventualityImplication : ltlEventualityImplications) {
         for (auto clause : negatedClauses(ltlEventualityImplication.second)) {
-            cout << clauseToString(clause) << endl;
+            //cout << clauseToString(clause) << endl;
             addClause(clause);
         }
     }
@@ -165,7 +165,7 @@ void Prover::makeLtlTail() {
         if (ltlStepClause.first == Literal("$false", true)) continue;
         for (auto clause : negatedClauses(ltlStepClause.second)) {
             //if ((clause.size() == 1) && (boxSteps.find(*clause.begin()) != boxSteps.end())) continue;
-            cout << clauseToString(clause) << endl;
+            //cout << clauseToString(clause) << endl;
             addClause(clause);
         }
     }
@@ -421,11 +421,28 @@ vector<literal_set> Prover::canTriggerLtlLiteral(Literal lit) {
             ans.push_back(trigger);
         }
     }
+    
+    // if lit starts with E, then remove E
+    bool flag = false;
+    if (lit.getName().substr(0, 2) == "$E") {
+        //cout << "BEFORE: " << lit.toString() << endl;
+        lit = Literal(lit.getName().substr(2), true);
+        // if name starts with $E~ then negate the literal
+        if (lit.getName().substr(0, 1) == "~") {
+            lit = Literal(lit.getName().substr(1), false);
+        }
+        flag = true;
+        //cout << "AFTER: " << lit.toString() << endl;
+    }
 
     if (ltlStepImplications.find(lit) != ltlStepImplications.end()) {
         for (literal_set trigger : ltlStepImplications[lit]) {
             ans.push_back(trigger);
         }
+    }
+    if (flag && ans.size() >= 2) {
+        return {{Literal("ex$" + lit.toString(), true)}};
+
     }
     return ans;
 }
@@ -526,14 +543,16 @@ vector<literal_set> Prover::createLtlReasons(literal_set conflict) {
     vector<vector<literal_set>> reasonForEachLiteral;
     for (Literal lit : conflict) {
         reasonForEachLiteral.push_back(canTriggerLtlLiteral(lit));
-        //cout << "Reason for " << lit.toString() << " is ";
-        //for (auto x : canTriggerLtlLiteral(lit)) {
-            //cout << "{";
-            //for (auto y : x) {
-                //cout << y.toString() << " ";
-            //}
-            //cout << "} ";
-        //}cout << endl;
+        /*
+        cout << "Reason for " << lit.toString() << " is ";
+        for (auto x : canTriggerLtlLiteral(lit)) {
+            cout << "{";
+            for (auto y : x) {
+                cout << y.toString() << " ";
+            }
+            cout << "} ";
+        }cout << endl;
+        */
     }
     return negatedClauses(cartesianProduct(reasonForEachLiteral));
 }

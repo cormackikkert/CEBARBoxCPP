@@ -149,6 +149,7 @@ public:
     for (auto clause : clauseList) {
         literals.insert(createLiteral(clause));
     }
+    //cout  << "CLASSICAL: " << litsetString(literals) << endl;
     formulaTriple.addClause(literals);
   }
 
@@ -174,6 +175,7 @@ public:
         formulaTriple.addClause(right);
 
     }
+     // cout << "STEP: " << litsetString(right) << endl;
     
   }
 
@@ -185,11 +187,14 @@ public:
     }
     Literal right = createLiteral(ctx->literal());
     formulaTriple.addEventualityClause(left, right);
+      //cout << "SOMETIME: " << litsetString({right}) << endl;
   }
 
   LtlFormulaTriple getFormulaTriple() const {
     return formulaTriple;
   }
+
+
 };
 
 
@@ -211,12 +216,16 @@ int main(int argc, char **argv) {
   LTLFormulaVisitor visitor;
   std::any result = visitor.visitStart(tree);
   auto formula = std::any_cast<std::shared_ptr<Formula>>(result);
-  cout << "ORIG: " << formula->toString() << endl;
+  //cout << "ORIG: " << formula->toString() << endl;
   formula = formula->negatedNormalForm();
-  cout << "NNF: " << formula->toString() << endl;
+  //cout << "NNF: " << formula->toString() << endl;
   formula = formula->tailNormalForm();
-  cout << "TNF: " << formula->toString() << endl;
-  formula = And::create({formula, Sometime::create(Atom::create("tail"))});
+  //cout << "TNF: " << formula->toString() << endl;
+  formula = And::create({formula, 
+          Sometime::create(Atom::create("tail"))});/*, 
+          Or::create({
+                  Not::create(Atom::create("tail")), Next::create(Atom::create("true"))})});
+                  */
 
   // Write tail normal form to a temporary file
   std::ofstream tailFormFile ("tail.ltl");
@@ -266,6 +275,7 @@ int main(int argc, char **argv) {
   // Parse the formula using MyListener
   LtlListener listener;
   antlr4::tree::ParseTreeWalker::DEFAULT.walk(&listener, parserSimplified.formula());
+  cout << "STARTING PROVER" << endl;
 
   // Create LineProver with parsed formula triple and initial literal
   LineProver lineProver = LineProver(listener.getFormulaTriple(), *listener.getInitialLiteral());

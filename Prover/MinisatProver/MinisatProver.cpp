@@ -44,16 +44,34 @@ modal_names_map MinisatProver::prepareSAT(FormulaTriple clauses,
 }
 
 void MinisatProver::prepareLtlfSat(LtlFormulaTriple clauses, Literal initialLiteral, bool succInSat) {
+
+    // If we did the ~ <> a -> ~ X a optimisation
+                              // Bias literals the opposite way
+    for (literal_set clause : clauses.getClauses()) {
+        for (Literal lit : clause) {
+            // check if literal starts with nx$
+            if (lit.getName().substr(0, 3) == "ex$") {
+                biasOpposite.insert(lit.getName().substr(3));
+            }
+        }
+    }
+
   createOrGetVariable(initialLiteral.getName(), Minisat::lbool((uint8_t)0));
   //createOrGetVariable("$E~tail", Minisat::lbool((uint8_t)1));
-  createOrGetVariable("tail", Minisat::lbool((uint8_t)1));
+  createOrGetVariable("tail", Minisat::lbool((uint8_t)0));
 
 
-  prepareLtlClauses(clauses.getStepClauses(), ltlStepImplications, false, succInSat);
   prepareLtlClauses(clauses.getEventualityClauses(), ltlEventualityImplications, true, succInSat);
-  prepareFalse();
+  prepareLtlClauses(clauses.getStepClauses(), ltlStepImplications, false, succInSat);
+  /*
+    for (literal_set clause : clauses.getClauses()) {
+        for (Literal lit : clause) createOrGetVariable(lit.getName());
+        calcSolver->addClause(*convertAssumptions(clause));
+    }
+    */
   prepareClauses(clauses.getClauses());
-
+  prepareFalse();
+  /*
   if (succInSat) {
     calcSolver->addClause(~Minisat::mkLit(createOrGetVariable("$false'")));
 
@@ -62,6 +80,7 @@ void MinisatProver::prepareLtlfSat(LtlFormulaTriple clauses, Literal initialLite
           calcSolver->addClause(*convertAssumptions(clause));
         }
   }
+  */
 }
 /*
 void MinisatProver::prepareLtlSat(LtlFormulaTriple clauses, Literal initialLiteral) {
@@ -99,7 +118,8 @@ void MinisatProver::prepareClauses(clause_set clauses) {
 void MinisatProver::prepareClauses(clause_list clauses) {
     // For the ltl prover
   for (literal_set clause : clauses) {
-      for (Literal lit : clause) createOrGetVariable(lit.getName());
+ 
+      for (Literal lit : clause) createOrGetVariable(lit.getName(), Minisat::lbool((uint8_t)lit.getPolarity()));
 
       calcSolver->addClause(*convertAssumptions(clause));
     }
@@ -139,7 +159,17 @@ void MinisatProver::prepareLtlClauses(ltl_clause_list modal_clauses,
           Literal eRight = Literal(rightName, 1);
           litToEventuality.emplace(clause.right, eRight);
           eventualityToLit.emplace(eRight, clause.right);
+
+          // If every eventuality has X a -> <> a optimisation, then bias the eventuality opposite
+          // +1 for tail
+          if (biasOpposite.size() + 1== modal_clauses.size()) {
+
+              //cout << "BIAS NORMAL: " << eRight.getName() << endl;
+            createOrGetVariable(eRight.getName(), Minisat::lbool((uint8_t)clause.right.getPolarity()));
+          } else {
             createOrGetVariable(eRight.getName(), Minisat::lbool((uint8_t)!clause.right.getPolarity()));
+          }
+
         // Don't trigger if evenetuality fulfilled
         clause.left.insert(~clause.right);
         if (succInSat) {

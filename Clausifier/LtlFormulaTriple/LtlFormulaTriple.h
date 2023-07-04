@@ -54,6 +54,12 @@ public:
 
   vector<string> toStringComponents() const;
   string toString() const;
+
+  void simplify();
+
+    void simplifyEventuality();
+    void simplifyNext();
+    void simplifyNextOrs();
 };
 
 #endif

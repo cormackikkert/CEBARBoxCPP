@@ -56,6 +56,7 @@ private:
   virtual int getLiteralId(Literal literal);
 
   int numLits = 0;
+  unordered_set<string> biasOpposite = {};
 
 public:
   MinisatProver(bool onesat = false);

@@ -7,6 +7,9 @@ LineProver::LineProver(LtlFormulaTriple formulaTriple, Literal initialLiteral)
 LineProver::~LineProver() {}
 
 bool LineProver::isSat() {
+    //cout << formulaTriple.toString() << endl;
+    //cout << "SIMPLIFY NOW" << endl;
+    formulaTriple.simplify();
     formulaTriple.addStepClause({Literal("tail", true)}, Literal("$false", true));
     //cout << formulaTriple.toString() << endl;
     while (pq.size()) pq.pop();
@@ -18,6 +21,9 @@ bool LineProver::isSat() {
         while (!pq.empty()) {
             auto state = pq.top();
             pq.pop();
+
+            //cout << endl;        
+            //cout << "OBLIGATION: " << state.toString() << endl;
 
             // get the last state
             // auto state = states.back();
@@ -87,6 +93,7 @@ bool LineProver::isSat() {
                              inserter(intersection, intersection.begin()));
             rollingIntersection = intersection;
         }
+        
     }
 }
 
@@ -180,11 +187,12 @@ vector<int> LineProver::literalSetToIndices(const literal_set& literals) {
 void LineProver::addReason(const literal_set& conflict, int distance, const literal_set& parentModel) {
     // Otherwise add the clause normally
     reasons[distance].insert(literalSetToIndices(conflict));
-    removeObligationsMatchingConflict(conflict, distance);
+    //cout << "CONFLICT: " << litsetString(conflict) << endl;
+    //removeObligationsMatchingConflict(conflict, distance);
 
     for (literal_set learntClause : solvers[0]->createLtlReasons(conflict)) {
         //cout << "LEARN REASON: " << distance+1 << " = " << litsetString(learntClause) << endl;
-        solvers[distance+1]->addClause(learntClause);
+        getSolver(distance+1)->addClause(learntClause);
     }
 }
 
@@ -199,7 +207,9 @@ StateResult LineProver::solveState(Obligation& obligation, int k) {
 
     //cout << "SOLVING WITH ASS: " << k << " -> " << litsetString(assumptions) << endl;
 
+    //cout << "BEGIN SOLVE" << endl;
     Solution solution = solver->solve(assumptions);
+    //cout << "END SOLVE" << endl;
     if (!solution.satisfiable) {
         if (solution.conflict.empty()) {
             // cast solver to minisatProver
@@ -254,7 +264,7 @@ shared_ptr<Prover> LineProver::getSolver(int distance) {
             // Must have all eventualities fulfilled
             solvers[distance]->makeLtlTail();
             //cout << "REE: " << endl;
-            cout << formulaTriple.toString() << endl;
+            //cout << formulaTriple.toString() << endl;
         }
     }
     return solvers[distance];
