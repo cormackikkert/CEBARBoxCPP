@@ -49,16 +49,19 @@ void MinisatProver::prepareLtlfSat(LtlFormulaTriple clauses, Literal initialLite
                               // Bias literals the opposite way
     for (literal_set clause : clauses.getClauses()) {
         for (Literal lit : clause) {
-            // check if literal starts with nx$
+            // check if literal starts with ex$
             if (lit.getName().substr(0, 3) == "ex$") {
                 biasOpposite.insert(lit.getName().substr(3));
             }
         }
+
+        //cout << "BIAS: " << biasOpposite.size() << endl;; 
     }
 
   createOrGetVariable(initialLiteral.getName(), Minisat::lbool((uint8_t)0));
   //createOrGetVariable("$E~tail", Minisat::lbool((uint8_t)1));
   createOrGetVariable("tail", Minisat::lbool((uint8_t)0));
+  //createOrGetVariable("$loop_start", Minisat::lbool((uint8_t)1));
 
 
   prepareLtlClauses(clauses.getEventualityClauses(), ltlEventualityImplications, true, succInSat);
@@ -162,10 +165,11 @@ void MinisatProver::prepareLtlClauses(ltl_clause_list modal_clauses,
 
           // If every eventuality has X a -> <> a optimisation, then bias the eventuality opposite
           // +1 for tail
-          if (biasOpposite.size() + 1== modal_clauses.size()) {
+          //cout << biasOpposite.size() << " / " << modal_clauses.size() << endl;
+          if (biasOpposite.size() + 1 == modal_clauses.size()) {
+              //cout << "BIASING " << endl;
 
-              //cout << "BIAS NORMAL: " << eRight.getName() << endl;
-            createOrGetVariable(eRight.getName(), Minisat::lbool((uint8_t)clause.right.getPolarity()));
+            createOrGetVariable(eRight.getName(), Minisat::lbool((uint8_t)!clause.right.getPolarity()));
           } else {
             createOrGetVariable(eRight.getName(), Minisat::lbool((uint8_t)!clause.right.getPolarity()));
           }
@@ -180,6 +184,7 @@ void MinisatProver::prepareLtlClauses(ltl_clause_list modal_clauses,
         // convert LTL clause above to classical clause
         literal_set classical {eRight};
         for (auto x : clause.left) classical.insert(~x);
+        //cout << "CLASSICAL: " << litsetString(classical) << endl;
         addClause(classical);
     
         createLtlImplication({eRight, ~clause.right}, eRight, ltlImplications, succInSat);
@@ -275,6 +280,7 @@ Solution MinisatProver::solve(const literal_set &assumptions) {
 void MinisatProver::reduce_conflict(literal_set& conflict) {
     literal_set all_lits = conflict;
     int i = 0;
+    //cout << "REDUCE: " << conflict.size() ;
     for (auto lit_to_remove : all_lits) {
         literal_set new_conflict;
         for (auto x : conflict) if (x != lit_to_remove) new_conflict.insert(x);
@@ -286,6 +292,7 @@ void MinisatProver::reduce_conflict(literal_set& conflict) {
         }
         i++;
     }
+    //cout << " -> " << conflict.size() << endl;
 }
 
 void MinisatProver::addClause(literal_set clause) {

@@ -21,7 +21,7 @@ struct StateAssumps {
 
 struct Obligation {
     StateAssumps assumptions;
-    literal_set parentModel;
+    vector<literal_set> parentModel;
     int distance;
     string toString() {
         return to_string(distance) + ": " + assumptions.toString();
@@ -44,23 +44,24 @@ struct StateResult {
 
 class LineProver {
     public:
-        LineProver(LtlFormulaTriple formulaTriple, Literal initialLiteral);
+        LineProver(LtlFormulaTriple formulaTriple, literal_set initialLiterals);
         ~LineProver();
 
         bool isSat();
         StateResult solveState(Obligation& obligation, int k);
-    private:
+    protected:
         // Store the successor state in the SAT solver.
         // Doubles number of variables, but ensures learnt reasons are only
         // to deal with reachability.
         bool succInSat = false;
         priority_queue<Obligation, vector<Obligation>, ObligationComparator> pq;
         LtlFormulaTriple formulaTriple;
-        Literal initialLiteral;
+        literal_set initialLiterals;
         vector<shared_ptr<Prover>> solvers;
-        shared_ptr<Prover> getSolver(int distance);
+        virtual shared_ptr<Prover> getSolver(int distance) = 0;
+        virtual void preprocess() = 0;
         void addReason(int distance, literal_set reason);
-        void addReason(const literal_set& reason, int distance, const literal_set& parentModel={});
+        virtual void addReason(const literal_set& reason, int distance, const literal_set& parentModel={});
         unordered_map<string, int> literalNameToIndex;
         unordered_map<int, Literal> indexToLiteral;
         vector<int> literalSetToIndices(const literal_set& literals);
@@ -71,6 +72,9 @@ class LineProver {
         void addGlobalReason(const literal_set& reason);
         map<string, int> conflictStore;
         unordered_map<literal_set, vector<literal_set>, LiteralSetHash, LiteralSetEqual> conflictToReasons;
+        virtual bool existsRepetition(int k);
+        bool existsSubsetRepetition(int k);
+        bool existsVardiRepetition(int k);
 
 };
 

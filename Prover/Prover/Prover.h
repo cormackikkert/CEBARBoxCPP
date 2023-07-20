@@ -169,7 +169,8 @@ public:
     pair<literal_set, literal_set> getLtlSuccessorAssumps(literal_set eventualities);
     vector<literal_set> canTriggerLtlLiteral(Literal lit);
     vector<literal_set> createLtlReasons(literal_set conflict);
-    void makeLtlTail();
+    void makeLtlTail(LtlFormulaTriple& formulaTriple);
+    void makeLtlfTail();
 };
 
 #endif

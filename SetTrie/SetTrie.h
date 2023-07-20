@@ -44,6 +44,9 @@ class Set_Trie {
     bool contains(vector<int>);
     bool contains_subset(vector<int>); // non strict subset
     bool contains_remove(vector<int>); // non strict subset
+    bool contains_superset(vector<int>& input);
+    bool contains_superset_helper(vector<int>& input, int currentIndex, Set_Trie_Node* currentNode);
+                                       
     int size();
     set<vector<int>> get_all();
 

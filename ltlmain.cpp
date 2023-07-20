@@ -3,6 +3,8 @@
 #include "Clausifier/LtlFormulaTriple/LtlFormulaTriple.h"
 
 #include "Prover/LtlProver/LineProver.h"
+#include "Prover/LtlProver/LtlfProver.h"
+#include "Prover/LtlProver/LtlProver.h"
 #include "Parser/ltlsnfLexer.h"
 #include "Parser/ltloriginalLexer.h"
 #include "Parser/ltloriginalBaseVisitor.h"
@@ -197,16 +199,8 @@ public:
 
 };
 
-
-int main(int argc, char **argv) {
-  // Validate input arguments
-  if (argc != 3 || std::string(argv[1]) != "-f") {
-    std::cerr << "Please provide a filename using the -f option." << std::endl;
-    return 1;
-  }
-
-  // Read ltl and convert to tail normal form
-  std::ifstream inputFile(argv[2]);
+string initialiseLtlf(string file) {
+  std::ifstream inputFile(file);
   antlr4::ANTLRInputStream input(inputFile);
   ltloriginalLexer lexer(&input);
   antlr4::CommonTokenStream tokens(&lexer);
@@ -232,6 +226,28 @@ int main(int argc, char **argv) {
   tailFormFile << formula->toString();
   tailFormFile.close();
 
+  return "tail.ltl";
+}
+
+int main(int argc, char **argv) {
+  // Validate input arguments
+  if (argc < 2) {
+    std::cerr << "Please provide a filename." << std::endl;
+    return 1;
+  }
+
+  std::string toSnf;
+  bool finiteMode = false;
+
+  // Check if "-f" flag is given
+  if (argc >= 3 && std::string(argv[1]) == "-f") {
+    // Finite mode
+    toSnf = initialiseLtlf(argv[2]);
+    finiteMode = true;
+  } else {
+    // Infinite mode (default)
+    toSnf = argv[1];
+  }
   // Get the path to the executable
   std::string programPath = argv[0];
   std::string::size_type lastSlashPos = programPath.find_last_of('/');
@@ -241,8 +257,9 @@ int main(int argc, char **argv) {
   std::string ltl2snfPath = executablePath + "ltl2snf";
 
   // Run ltl2snf on the temporary file
-  std::string command = ltl2snfPath + " -simp -i tail.ltl -o simplified.ltl";
-  int exitCode = std::system(command.c_str());
+  std::string flag = finiteMode ? "-reuse_renaming -prenex  -simp" : "-reuse_renaming -prenex -ple -simp";
+  std::string command = ltl2snfPath + " -i " + toSnf + " -o simplified.ltl " + flag;
+  int exitCode = std::system(command.c_str());           
   if (exitCode != 0) {
     std::cerr << "Failed to execute ltl2snf program." << std::endl;
     return 1;
@@ -278,12 +295,19 @@ int main(int argc, char **argv) {
   cout << "STARTING PROVER" << endl;
 
   // Create LineProver with parsed formula triple and initial literal
-  LineProver lineProver = LineProver(listener.getFormulaTriple(), *listener.getInitialLiteral());
-  if (lineProver.isSat()) {
-    std::cout << "SAT" << std::endl;
-  } else {
-    std::cout << "UNSAT" << std::endl;
-  }
+std::unique_ptr<LineProver> lineProver;
 
+literal_set init = {*listener.getInitialLiteral()};
+if (finiteMode) {
+    lineProver = std::make_unique<LtlfProver>(listener.getFormulaTriple(), init);
+} else {
+    lineProver = std::make_unique<LtlProver>(listener.getFormulaTriple(), init);
+}
+
+if (lineProver->isSat()) {
+    std::cout << "SAT" << std::endl;
+} else {
+    std::cout << "UNSAT" << std::endl;
+}
   return 0;
 }

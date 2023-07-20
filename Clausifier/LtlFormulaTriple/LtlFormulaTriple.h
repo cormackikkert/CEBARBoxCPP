@@ -60,6 +60,7 @@ public:
     void simplifyEventuality();
     void simplifyNext();
     void simplifyNextOrs();
+    literal_set getUniverse();
 };
 
 #endif

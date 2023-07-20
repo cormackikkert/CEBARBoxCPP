@@ -59,6 +59,7 @@ bool in(vector<int> x, set<vector<int>> y) {
   return false;
 }
 
+
 // If it contains it, then remove it and report this
 bool Set_Trie::contains_remove(const vector<int> input) {
   assert(input.size()); // 
@@ -106,6 +107,24 @@ bool Set_Trie::contains_remove(const vector<int> input) {
     //assert(!in(input, original_reasons));
     return false;
   }
+}
+
+
+bool Set_Trie::contains_superset(vector<int>& input) {
+    return contains_superset_helper(input, 0, root_node);
+}
+
+bool Set_Trie::contains_superset_helper(vector<int>& input, int index, Set_Trie_Node* node) {
+    if (node->has_child(input[index]) || node->has_child(-input[index])) {
+        if (node->has_child(input[index])) 
+            return contains_superset_helper(input, index+1, node->children[input[index]]);
+        return false;
+    } else {
+        for (auto it = node->children.begin(); it != node->children.end(); it++) {
+            if (contains_superset_helper(input, index, it->second)) return true;
+        }
+        return false;
+    }    
 }
 
 // Report if the container contains contains a subset (non-strict) of the input

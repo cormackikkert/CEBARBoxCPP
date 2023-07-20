@@ -84,71 +84,68 @@ string clauseToString(literal_set clause) {
     return result;
 }
 
-void Prover::makeLtlTail() {
-    // No next state eventualites
-    //cout << endl;
-    //cout << "Adding clauses to make a tail: " << endl;
-    //cout << "No next state eventualities" << endl;
 
+void Prover::makeLtlTail(LtlFormulaTriple& formulaTriple) {
+    //cout << "STAGE 1" << endl;
+    Literal tail("tail", true);
+    addClause({tail});
+    //cout << "STAGE 2" << endl;
     /*
-    literal_set boxSteps;
-    for (auto ltlStepClause : ltlStepImplications) {
-        for (auto clause : negatedClauses(ltlStepClause.second)) {
-            if (clause == literal_set({~ltlStepClause.first})) {
-                boxSteps.insert(~ltlStepClause.first);
-            }
-        }
-    }
 
-    literal_set boxSteps2Away;
-    for (auto ltlStepClause : ltlStepImplications) {
-        for (auto clause : ltlStepClause.second) {
-            bool isBoxStep = false;
-            // cout << "CHECKING: " << litsetString(clause) << " " << ltlStepClause.first.toString() << endl;
-            for (auto x : clause) if (boxSteps.find(~x) != boxSteps.end()) isBoxStep = true;
-            if (isBoxStep) {
-                boxSteps2Away.insert(~ltlStepClause.first);
-                break;
-            }
-        }
-        //boxSteps.insert(ltlStepClause.second.begin(), ltlStepClause.second.end());
+    Literal L ("$loop", true);
+    Literal Ls ("$loop_start", true);
+    Literal seen_Ls("seen($loop_start)", true);
+    addClause({~tail, L});
+    addClause({~tail, ~Ls}); 
+    addClause({~tail, seen_Ls}); 
+    //cout << "STAGE 3" << endl;
+    // choose(p) -> p
+    //cout << "STAGE 1" << endl;
+    literal_set universe = formulaTriple.getUniverse();
+    for (auto& poslit : universe) {
+        if (poslit == Ls) continue;
+        if (poslit == L) continue;
+        if (poslit.getName().substr(0, 4) == "tail") continue;
+        if (poslit.getName().substr(0, 6) == "$false") continue;
+        if (poslit.getName().substr(0, 9) == "$combine_") continue;
+        if (poslit.getName().substr(0, 5) == "seen(") continue;
+        if (poslit.getName().substr(0, 7) == "choose(") continue;
+        if (poslit.getName().substr(0, 2) == "$E") continue;
+        if (poslit.getName().substr(0, 2) == "$x") continue;
+        if (poslit.getName().substr(0, 2) == "$d") continue;
+        if (poslit.getName().substr(0, 3) == "ex$") continue;
+        Literal choose ("choose(" + poslit.toString() + ")", true);
+        //cout << "ADDTAIL: " << litsetString({~choose, lit}) << endl;
+        addClause({~tail, ~choose, poslit});
+        addClause({~tail, choose, ~poslit});
     }
-    boxSteps.insert(boxSteps2Away.begin(), boxSteps2Away.end());
-    cout << "BOX STEPS: " << litsetString(boxSteps) << endl;
+    //cout << "STAGE 4" << endl;
+    //cout << "STAGE 2" << endl;
 
-    for (auto ltlStepClause : ltlStepImplications) {
-        if (ltlStepClause.first == Literal("$false", true)) continue;
-        for (auto clause : negatedClauses(ltlStepClause.second)) {
-            bool isBox = false;
-            for (auto lit : clause) if (boxSteps.find(lit) != boxSteps.end()) isBox = true;
-            if (isBox) continue;
-            //if ((clause.size() == 1) && (boxSteps.find(*clause.begin()) != boxSteps.end())) continue;
-            cout << clauseToString(clause) << endl;
-            addClause(clause);
-        }
-    }
-    // All eventualities are fulfilled in current world
-    //cout << "All eventualities are fulfilled in the current world" << endl;
-    for (auto eventuality : eventualityToLit) {
-        //cout << clauseToString({~eventuality.first, eventuality.second}) << endl;
-        addClause({~eventuality.first, eventuality.second});
-    }
-    // All eventualities that will be triggered all also fulfilled
-    //cout << "All eventualities that will be triggered are also fulfilled" << endl;
     for (auto ltlEventualityImplication : ltlEventualityImplications) {
-        for (auto clause : negatedClauses(ltlEventualityImplication.second)) {
-            //cout << clauseToString(clause) << endl;
-            addClause(clause);
-        }
+        auto& event = ltlEventualityImplication.first;
+        //if (event.getName() == "$E$loop_start") {
+            //cout << "ADD SPECIAL: " << litsetString({~event}) << endl;
+            //addClause({~event});
+            //continue;
+        //}
+        Literal orig = *ltlEventualityImplication.second[0].begin();
+        Literal seen ("seen(" + (~orig).toString() + ")", true);
+        literal_set clause =  {~tail, ~event, seen};
+        //cout << "ADDTAIL: " << litsetString(clause) << endl;
+        addClause(clause);
     }
     */
-    //cout << "All eventualities that will be triggered all also fulfilled" << endl;
-    
-    addClause({Literal("tail", true)});
+}
+
+void Prover::makeLtlfTail() {
+    Literal tail = Literal("tail", true);
+
+    addClause({tail});
 
     for (auto eventuality : eventualityToLit) {
         //cout << clauseToString({~eventuality.first, eventuality.second}) << endl;
-        addClause({~eventuality.first, eventuality.second});
+        addClause({~tail, ~eventuality.first, eventuality.second});
     }
     // All eventualities that will be triggered all also fulfilled
     //cout << "All eventualities that will be triggered are also fulfilled" << endl;
@@ -156,6 +153,7 @@ void Prover::makeLtlTail() {
     for (auto ltlEventualityImplication : ltlEventualityImplications) {
         for (auto clause : negatedClauses(ltlEventualityImplication.second)) {
             //cout << clauseToString(clause) << endl;
+            clause.insert(~tail);
             addClause(clause);
         }
     }
@@ -166,6 +164,7 @@ void Prover::makeLtlTail() {
         for (auto clause : negatedClauses(ltlStepClause.second)) {
             //if ((clause.size() == 1) && (boxSteps.find(*clause.begin()) != boxSteps.end())) continue;
             //cout << clauseToString(clause) << endl;
+            clause.insert(~tail);
             addClause(clause);
         }
     }
@@ -423,6 +422,7 @@ vector<literal_set> Prover::canTriggerLtlLiteral(Literal lit) {
     }
     
     // if lit starts with E, then remove E
+    //*
     bool flag = false;
     if (lit.getName().substr(0, 2) == "$E") {
         //cout << "BEFORE: " << lit.toString() << endl;
@@ -444,6 +444,7 @@ vector<literal_set> Prover::canTriggerLtlLiteral(Literal lit) {
         return {{Literal("ex$" + lit.toString(), true)}};
 
     }
+    // TODO: FIX THIS!!
     return ans;
 }
 
