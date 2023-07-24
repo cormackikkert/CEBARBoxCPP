@@ -71,6 +71,7 @@ class TrieformProverK : public Trieform {
     void propagateLevels4();
     void persistentBoxes4();
     void globalToLocal(int depth = 0);
+
 };
 
 #endif

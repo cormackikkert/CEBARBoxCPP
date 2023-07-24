@@ -120,10 +120,8 @@ Solution TrieformProverKGlobal::prove(int depth, literal_set assumptions) {
 
 
     // Check solution memo
-    /*
     cout << "Depth: " << depth << " Proving: ";
     for (auto x : assumptions) cout << x.toString() << " "; cout << endl;
-    */
     assumptionsBitset =
         convertAssumptionsToBitset(assumptions);
     memoResult =
@@ -214,11 +212,12 @@ Solution TrieformProverKGlobal::prove(int depth, literal_set assumptions) {
             for (literal_set learnClause : prover->getClauses(
                      modalityDiamonds.first,
                      prover->negatedClauses(childNode->allConflicts))) {
-                allConflicts.push_back(learnClause);
-                prover->addClause(learnClause);
+                //cout << "CLAUSE PROP" << endl;
+                //allConflicts.push_back(learnClause);
+                //prover->addClause(learnClause);
 
-                restartUntil =
-                    checkClauseAgainstPastModels(restartUntil, learnClause);
+                //restartUntil =
+                   // checkClauseAgainstPastModels(restartUntil, learnClause);
             }
             childNode->allConflicts.clear();
 
@@ -418,4 +417,12 @@ void TrieformProverKGlobal::forwardProp() {
         modalSubtrie.second->clauses.extendClauses(clauses);
         dynamic_cast<TrieformProverKGlobal *>(modalSubtrie.second.get())->forwardProp();
     }
+}
+
+void TrieformProverKGlobal::addGlobalAssumptions(shared_ptr<Trieform> globalAssumptions) {
+    for (auto modalSubtrie : subtrieMap) {
+        dynamic_cast<TrieformProverKGlobal *>(modalSubtrie.second.get())
+            ->addGlobalAssumptions(globalAssumptions);
+    }
+    overShadow(globalAssumptions, 0);
 }

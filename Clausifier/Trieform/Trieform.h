@@ -8,6 +8,7 @@
 #include <memory>
 #include <unordered_map>
 #include <vector>
+#include <set>
 
 #include "../../Formula/And/And.h"
 #include "../../Formula/Atom/Atom.h"
@@ -95,9 +96,12 @@ class Trieform : public enable_shared_from_this<Trieform> {
 
     static bool useOneSat;
     static shared_ptr<Cache> cache;
+    static set<pair<vector<int>, vector<int>>> composeCache;
 
     void propagateClauses(const shared_ptr<Formula> &formula);
     void overShadow(shared_ptr<Trieform> shadowTrie, int skipModality = 0);
+    void compose(shared_ptr<Trieform> shadowTrie, int skipModality = 0);
+    void composeHelper(shared_ptr<Trieform> shadowTrie, int skipModality = 0);
     void conditionalOverShadow(shared_ptr<Trieform> shadowTrie,
                                shared_ptr<Formula> condition,
                                vector<int> prefix = vector<int>(),

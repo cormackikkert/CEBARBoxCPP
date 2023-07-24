@@ -26,8 +26,10 @@ shared_ptr<Trieform> TrieformFactory::makeTrie(
         // Trieform::cache = make_shared<GlobalCache>("x");
         Trieform::useOneSat = true;
     }
-
-    if (constraints.localReduction) {
+    
+    if (constraints.usingGlobalAssumps) {
+        return makeTrieKGlobal(newFormula);
+    } else if (constraints.localReduction) {
         return makeTrieK(newFormula);
     } else if (constraints.tense) {
         return makeTrieKt(newFormula);

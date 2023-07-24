@@ -79,6 +79,7 @@ public:
     void propagateLevels4();
     void persistentBoxes4();
     int isInHistory(vector<pair<int, shared_ptr<Bitset>>> history, shared_ptr<Bitset> bitset);
+    void addGlobalAssumptions(shared_ptr<Trieform> globalAssumptions);
 };
 
 #endif

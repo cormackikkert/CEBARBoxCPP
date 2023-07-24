@@ -5,6 +5,7 @@
 bool Trieform::stringModalContexts = false;
 bool Trieform::ensureUniqueModalClauseLhs = false;
 shared_ptr<Cache> Trieform::cache = make_shared<PrefixCache>("x");
+set<pair<vector<int>, vector<int>>> Trieform::composeCache;
 bool Trieform::useOneSat = false;
 shared_ptr<Prover> Trieform::globalProver = shared_ptr<Prover>(new MinisatProver(false));
 
@@ -827,15 +828,60 @@ bool Trieform::isSatisfiable(bool withRoot) {
 }
 
 void Trieform::overShadow(shared_ptr<Trieform> shadowTrie, int skipModality) {
-    // cout << "Performing Shadow Local " << modality.size() << endl;
+    cout << "Performing Shadow Local: " << endl;
+    for (auto x : modality) {
+        cout << x << " ";
+    }
+    cout << endl;
+    for (auto x : shadowTrie->modality) {
+        cout << x << " ";
+    }
+    cout << endl;
+    
     clauses.extendClauses(shadowTrie->getClauses());
+    if (clauses.getClauses().size() > 0) {
+        cout << "REE: " << clauses.getClauses().size() << endl;
+    }
     // Shadow Trie is one level down
     for (auto modalSubtrie : shadowTrie->getTrieMap()) {
         if (modalSubtrie.first == skipModality) {
             continue;
         }
-        // cout << "Calling " << modalSubtrie.first << endl;
-        getSubtrieOrEmpty(modalSubtrie.first)->overShadow(modalSubtrie.second);
+        // DAG
+        if (hasSubtrie(modalSubtrie.first)) {
+            subtrieMap[modalSubtrie.first]->overShadow(modalSubtrie.second);
+        } else {
+            subtrieMap[modalSubtrie.first] = modalSubtrie.second;
+        }
+        //getSubtrieOrEmpty(modalSubtrie.first)->overShadow(modalSubtrie.second);
+        // cout << "Complete" << endl;
+    }
+}
+void Trieform::compose(shared_ptr<Trieform> shadowTrie, int skipModality) {
+    composeCache.clear();
+    composeHelper(shadowTrie, skipModality);
+}
+
+void Trieform::composeHelper(shared_ptr<Trieform> shadowTrie, int skipModality) {
+    if (composeCache.find({modality, shadowTrie->modality}) != composeCache.end()) {
+        return;
+    }
+
+    // cout << "Performing Shadow Local " << modality.size() << endl;
+    clauses.extendClauses(shadowTrie->getClauses());
+    composeCache.insert({modality, shadowTrie->modality});
+    // Shadow Trie is one level down
+    for (auto modalSubtrie : shadowTrie->getTrieMap()) {
+        if (modalSubtrie.first == skipModality) {
+            continue;
+        }
+        // DAG
+        if (hasSubtrie(modalSubtrie.first)) {
+            subtrieMap[modalSubtrie.first]->composeHelper(modalSubtrie.second);
+        } else {
+            subtrieMap[modalSubtrie.first] = modalSubtrie.second;
+        }
+        //getSubtrieOrEmpty(modalSubtrie.first)->overShadow(modalSubtrie.second);
         // cout << "Complete" << endl;
     }
 }
