@@ -96,8 +96,6 @@ Solution TrieformProverK::prove(int depth, literal_set assumptions) {
     modal_literal_map triggeredBoxes;
 
     
-    cout << "Depth: " << depth << " Proving: ";
-    for (auto x : assumptions) cout << x.toString() << " "; cout << endl;
 
     assumptionsBitset = isExact ? nullptr : convertAssumptionsToBitset(assumptions);
 
@@ -574,7 +572,5 @@ void TrieformProverK::localReductionTense() {
   }
 
 }
-
-
 
 

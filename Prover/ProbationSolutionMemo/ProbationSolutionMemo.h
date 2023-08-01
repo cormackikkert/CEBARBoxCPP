@@ -21,6 +21,7 @@ struct ProbationSolutionMemoResult {
 class ProbationSolutionMemo {
     private:
         vector<pair<shared_ptr<vector<int>>, shared_ptr<Bitset>>> satSols;
+        vector<shared_ptr<literal_set>> pastModels;
 
     public:
         int minimalRoot = -1;
@@ -28,10 +29,13 @@ class ProbationSolutionMemo {
         ProbationSolutionMemo();
         ~ProbationSolutionMemo();
 
+        void addPastModel(shared_ptr<literal_set> model);
+
         ProbationSolutionMemoResult
             getFromMemo(const shared_ptr<vector<int>> &modalContext, const shared_ptr<Bitset> &assumptions) const;
 
-        void insertSat(const shared_ptr<vector<int>> &modalContext, const shared_ptr<Bitset> &assumptions);
+        void insertSat(const shared_ptr<vector<int>> &modalContext, const shared_ptr<Bitset> &assumptions, literal_set model = {});
+
         void clear();
         void resize(int n);
         int size();
@@ -41,6 +45,7 @@ class ProbationSolutionMemo {
         void setState(ProbationSolutionMemoState pastInfo);
         
         vector<pair<shared_ptr<vector<int>>, shared_ptr<Bitset>>> getSatSols() const;
+        vector<pair<shared_ptr<vector<int>>, pair<shared_ptr<Bitset>, shared_ptr<literal_set>>>> getSatSolsAndModels();
 };
 
 #endif

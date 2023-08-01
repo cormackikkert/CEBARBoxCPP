@@ -153,6 +153,7 @@ public:
                                      name_set extra = name_set()) = 0;
   virtual void prepareLtlfSat(LtlFormulaTriple clauses, Literal initialLiteral, bool succInSat) = 0;
   virtual Solution solve(const literal_set &assumptions = literal_set()) = 0;
+  virtual Solution solveReduced(const literal_set &assumptions = literal_set()) = 0;
   virtual void reduce_conflict(literal_set& conflict) = 0;
   virtual void addClause(literal_set clause) = 0;
 
@@ -171,6 +172,14 @@ public:
     vector<literal_set> createLtlReasons(literal_set conflict);
     void makeLtlTail(LtlFormulaTriple& formulaTriple);
     void makeLtlfTail();
+
+
+
+    void calculateTriggeredBoxClauses(literal_set& model);
+void calculateTriggeredDiamondsClauses(literal_set& model);
+
+void calculateTriggeredModalClauses(modal_lit_implication &modalLits,
+        modal_literal_map &triggered, literal_set& model);
 };
 
 #endif

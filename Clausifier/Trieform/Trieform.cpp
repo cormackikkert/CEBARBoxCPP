@@ -6,6 +6,9 @@ bool Trieform::stringModalContexts = false;
 bool Trieform::ensureUniqueModalClauseLhs = false;
 shared_ptr<Cache> Trieform::cache = make_shared<PrefixCache>("x");
 set<pair<vector<int>, vector<int>>> Trieform::composeCache;
+set<shared_ptr<Trieform>> Trieform::visited;
+vector<shared_ptr<Trieform>> Trieform::topSort;
+
 bool Trieform::useOneSat = false;
 shared_ptr<Prover> Trieform::globalProver = shared_ptr<Prover>(new MinisatProver(false));
 
@@ -17,6 +20,7 @@ void Trieform::initialise(const shared_ptr<Formula> &formula,
                           shared_ptr<Trieform> parentTrie) {
     propagateClauses(formula);
     parent = parentTrie;
+    parents.push_back(parentTrie);
 }
 
 void Trieform::initialise(const shared_ptr<Formula> &formula,
@@ -24,6 +28,7 @@ void Trieform::initialise(const shared_ptr<Formula> &formula,
                           shared_ptr<Trieform> parentTrie) {
     modality = newModality;
     parent = parentTrie;
+    parents.push_back(parentTrie);
 
     cout << "INITIALISING " << formula->toString() << endl;
 
@@ -34,6 +39,7 @@ void Trieform::initialise(const vector<int> &newModality,
                           shared_ptr<Trieform> parentTrie) {
     modality = newModality;
     parent = parentTrie;
+    parents.push_back(parentTrie);
 }
 
 Trieform::~Trieform() {}
@@ -529,9 +535,18 @@ void Trieform::reduceClauses() {
 }
 
 void Trieform::removeTrueAndFalse() {
+    visited.clear();
+    removeTrueAndFalseHelper();
+}
+
+void Trieform::removeTrueAndFalseHelper() {
+    if (visited.find(shared_from_this()) != visited.end()) {
+        return;
+    }
+    visited.insert(shared_from_this());
     clauses.removeTrueAndFalse();
     for (auto modTrie : subtrieMap) {
-        modTrie.second->removeTrueAndFalse();
+        modTrie.second->removeTrueAndFalseHelper();
     }
 }
 
@@ -828,19 +843,10 @@ bool Trieform::isSatisfiable(bool withRoot) {
 }
 
 void Trieform::overShadow(shared_ptr<Trieform> shadowTrie, int skipModality) {
-    cout << "Performing Shadow Local: " << endl;
-    for (auto x : modality) {
-        cout << x << " ";
-    }
-    cout << endl;
-    for (auto x : shadowTrie->modality) {
-        cout << x << " ";
-    }
-    cout << endl;
     
     clauses.extendClauses(shadowTrie->getClauses());
     if (clauses.getClauses().size() > 0) {
-        cout << "REE: " << clauses.getClauses().size() << endl;
+        //cout << "HERE: " << clauses.getClauses().size() << endl;
     }
     // Shadow Trie is one level down
     for (auto modalSubtrie : shadowTrie->getTrieMap()) {
@@ -857,17 +863,57 @@ void Trieform::overShadow(shared_ptr<Trieform> shadowTrie, int skipModality) {
         // cout << "Complete" << endl;
     }
 }
-void Trieform::compose(shared_ptr<Trieform> shadowTrie, int skipModality) {
+
+void Trieform::compose(shared_ptr<Trieform> shadowTrie, int skipModality, bool sameTrie) {
+    /*
+    cout << ">>> BEGIN" << endl;
+    cout << "COMPOSING ON: ";
+    for (auto x : modality) {
+        cout << x << " ";
+    }
+    cout << endl;
+    */
     composeCache.clear();
-    composeHelper(shadowTrie, skipModality);
+    composeHelper(shadowTrie, skipModality, sameTrie);
 }
 
-void Trieform::composeHelper(shared_ptr<Trieform> shadowTrie, int skipModality) {
+void Trieform::composeHelper(shared_ptr<Trieform> shadowTrie, int skipModality, bool sameTrie) {
     if (composeCache.find({modality, shadowTrie->modality}) != composeCache.end()) {
+        /*
+        cout << "SHORT CIRCUIT" << endl;
+        cout << "TRIED COMPOSED: " << endl;
+        cout << "| ";
+        for (auto x : shadowTrie->modality) {
+            cout << x << " ";
+        }
+        cout << "|" << endl;
+        cout << "ONTO" << endl;
+        cout << "| ";
+        for (auto x : shadowTrie->composedOnto.back()->modality) {
+            cout << x << " ";
+        }
+        cout << "|" << endl;
+        */
         return;
     }
-
-    // cout << "Performing Shadow Local " << modality.size() << endl;
+    if (sameTrie && shadowTrie->modality == modality) {
+        return;
+    }
+    shadowTrie->composedOnto.push_back(shared_from_this());
+    /*
+    cout << "COMPOSED: " << endl;
+    cout << "| ";
+    for (auto x : shadowTrie->modality) {
+        cout << x << " ";
+    }
+    cout << "|" << endl;
+    cout << "ONTO" << endl;
+    cout << "| ";
+    for (auto x : shadowTrie->composedOnto.back()->modality) {
+        cout << x << " ";
+    }
+    cout << "|" << endl;
+    */
     clauses.extendClauses(shadowTrie->getClauses());
     composeCache.insert({modality, shadowTrie->modality});
     // Shadow Trie is one level down
@@ -877,8 +923,10 @@ void Trieform::composeHelper(shared_ptr<Trieform> shadowTrie, int skipModality) 
         }
         // DAG
         if (hasSubtrie(modalSubtrie.first)) {
-            subtrieMap[modalSubtrie.first]->composeHelper(modalSubtrie.second);
+            subtrieMap[modalSubtrie.first]
+                ->composeHelper(modalSubtrie.second, skipModality, sameTrie);
         } else {
+            modalSubtrie.second->parents.push_back(shared_from_this());
             subtrieMap[modalSubtrie.first] = modalSubtrie.second;
         }
         //getSubtrieOrEmpty(modalSubtrie.first)->overShadow(modalSubtrie.second);
@@ -1056,4 +1104,70 @@ void Trieform::calculateFormulaDetails(FormulaDetails &formulaDetails,
             }
         } break;
     }
+}
+
+vector<shared_ptr<Trieform>> Trieform::getTopSort() {
+    visited.clear();
+    topSort.clear();
+    topSortDfs();
+    reverse(topSort.begin(), topSort.end());
+    return topSort;
+}
+
+void Trieform::topSortDfs() {
+    if (visited.find(shared_from_this()) != visited.end()) return;
+    visited.insert(shared_from_this());
+
+    for (auto modTrie : subtrieMap) {
+        modTrie.second->topSortDfs();
+    }
+
+    topSort.push_back(shared_from_this());
+}
+
+
+void Trieform::unravel(int depth, bool terminate) {
+    if (depth == 0) {
+        if (terminate) {
+            clauses.eraseBoxClauses();
+            clauses.eraseDiamondClauses();
+        }
+    } else {
+        shared_ptr<Trieform> succ = nullptr; 
+        for (ModalClause diaClause : clauses.getDiamondClauses()) {
+            if (!terminate) {
+                // only create one successor
+                if (succ == nullptr) {
+                    if (!hasSubtrie(diaClause.modality)) {
+                        getSubtrieOrEmpty(diaClause.modality);
+                        subtrieMap[diaClause.modality]->overShadow(shared_from_this(),
+                                                                   diaClause.modality);
+                        succ = subtrieMap[diaClause.modality];
+                    }
+                } else {
+                    subtrieMap[diaClause.modality] = succ;
+                }
+            } else {
+                // TODO: implement this
+                cout << "NOT IMPLEMENTED" << endl;
+                assert (false);
+            }
+        }
+        if (!terminate && depth == 1) {
+            subtrieMap.clear();
+            return;
+        }
+        for (auto subtrie : subtrieMap) {
+            dynamic_cast<Trieform *>(subtrie.second.get())
+                ->unravel(depth - 1, terminate);
+        }
+    }
+    // cout << clauses.getDiamondClauses().size() << endl;
+    // cout << clauses.getBoxClauses().size() << endl;
+}
+
+void Trieform::propRoot() {
+        for (auto subtrie : subtrieMap) {
+            clauses.addBoxClause({subtrie.first, True::create(), Atom::create("$root")});
+        }
 }

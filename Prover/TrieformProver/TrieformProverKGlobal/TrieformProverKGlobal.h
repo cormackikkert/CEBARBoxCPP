@@ -15,6 +15,7 @@ using namespace std;
 class TrieformProverKGlobal : public Trieform {
 protected:
 
+  static unordered_map<literal_set, literal_set, LiteralSetHash, LiteralSetEqual> modelCache;
   static shared_ptr<Cache> persistentCache;
   unsigned int assumptionsSize = 0;
   LocalSolutionMemo localMemo;
@@ -36,6 +37,7 @@ protected:
     unsigned int checkClauseAgainstPastModels(int restartUntil, literal_set clause);
 
     int solveLocallyDepth = -1;
+    unordered_map<literal_set, int, LiteralSetHash, LiteralSetEqual> occ;
 
 
  void globallyAddClauses(const FormulaTriple &otherClauses);
@@ -80,6 +82,7 @@ public:
     void persistentBoxes4();
     int isInHistory(vector<pair<int, shared_ptr<Bitset>>> history, shared_ptr<Bitset> bitset);
     void addGlobalAssumptions(shared_ptr<Trieform> globalAssumptions);
+    void cutReflexiveLeaves(shared_ptr<Trieform> globalAssumptions);
 };
 
 #endif

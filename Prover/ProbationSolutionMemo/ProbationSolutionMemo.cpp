@@ -15,7 +15,7 @@ ProbationSolutionMemo::getFromMemo(const shared_ptr<vector<int>> &modalContext, 
     return {false, {false, literal_set()}};
 }
 
-void ProbationSolutionMemo::insertSat(const shared_ptr<vector<int>> &modalContext, const shared_ptr<Bitset> &assumptions) {
+void ProbationSolutionMemo::insertSat(const shared_ptr<vector<int>> &modalContext, const shared_ptr<Bitset> &assumptions, literal_set model) {
     satSols.push_back({modalContext, assumptions});
 }
 
@@ -41,8 +41,26 @@ ProbationSolutionMemoState ProbationSolutionMemo::getState() {
 void ProbationSolutionMemo::setState(ProbationSolutionMemoState pastInfo) {
     minimalRoot = pastInfo.first;
     satSols.resize(pastInfo.second);
+    pastModels.resize(pastInfo.second);
 }
 
  vector<pair<shared_ptr<vector<int>>, shared_ptr<Bitset>>> ProbationSolutionMemo::getSatSols() const {
     return satSols;
+}
+vector<pair<shared_ptr<vector<int>>, pair<shared_ptr<Bitset>, shared_ptr<literal_set>>>> ProbationSolutionMemo::getSatSolsAndModels() {
+vector<pair<shared_ptr<vector<int>>, pair<shared_ptr<Bitset>, shared_ptr<literal_set>>>> res;
+
+    for (int i = 0; i < satSols.size(); ++i) {
+        res.push_back(
+                {satSols[i].first, {satSols[i].second, pastModels[i]}}
+        );
+    }
+     for (auto x : satSols) {
+
+     }
+    return res;
+}
+
+void ProbationSolutionMemo::addPastModel(shared_ptr<literal_set> model) {
+    pastModels.push_back(model);
 }

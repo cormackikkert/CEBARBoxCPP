@@ -9,7 +9,7 @@ shared_ptr<Trieform> TrieformFactory::makeTrie(
         Trieform::ensureUniqueModalClauseLhs = true;
         //Trieform::stringModalContexts = true;
     }
-    if (constraints.tense || constraints.oneSat || constraints.symmetric || constraints.euclidean || constraints.transitive) {
+    if (constraints.tense || constraints.oneSat || constraints.symmetric || constraints.euclidean || constraints.transitive || constraints.usingGlobalAssumps) {
         Trieform::stringModalContexts = true;
 
         formula_set orSet;
@@ -27,7 +27,9 @@ shared_ptr<Trieform> TrieformFactory::makeTrie(
         Trieform::useOneSat = true;
     }
     
-    if (constraints.usingGlobalAssumps) {
+    if (constraints.useDag) {
+        return makeTrieKDag(newFormula);
+    } else if (constraints.usingGlobalAssumps) {
         return makeTrieKGlobal(newFormula);
     } else if (constraints.localReduction) {
         return makeTrieK(newFormula);

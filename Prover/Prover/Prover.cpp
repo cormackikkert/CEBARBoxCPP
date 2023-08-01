@@ -64,6 +64,18 @@ void Prover::calculateTriggeredModalClauses(modal_lit_implication &modalLits,
     }
 }
 
+void Prover::calculateTriggeredModalClauses(modal_lit_implication &modalLits,
+        modal_literal_map &triggered, literal_set& model) {
+    triggered.clear();
+    for (auto modalityLitImplication : modalLits) {
+        for (auto literalImplication : modalityLitImplication.second) {
+            if (model.find(literalImplication.first) != model.end()) {
+                triggered[modalityLitImplication.first].insert(
+                        literalImplication.second.begin(), literalImplication.second.end());
+            }
+        }
+    }
+}
 
 void Prover::calculateTriggeredLtlClauses(ltl_implications &ltlImplications,
         literal_set &triggered) {
@@ -223,6 +235,15 @@ void Prover::calculateTriggeredBoxClauses() {
 }
 
 void Prover::calculateTriggeredDiamondsClauses() {
+    calculateTriggeredModalClauses(diamondLits, triggeredDiamonds);
+}
+
+
+void Prover::calculateTriggeredBoxClauses(literal_set& model) {
+    calculateTriggeredModalClauses(boxLits, triggeredBoxes);
+}
+
+void Prover::calculateTriggeredDiamondsClauses(literal_set& model) {
     calculateTriggeredModalClauses(diamondLits, triggeredDiamonds);
 }
 
@@ -682,5 +703,3 @@ vector<literal_set> Prover::getClauses(int modality, vector<literal_set> conflic
     }
     return pure;
 }
-
-
