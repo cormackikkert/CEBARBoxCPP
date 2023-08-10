@@ -3,6 +3,7 @@
 ## Versions
 I will be working on CEGARBoxCPP continuously throughout the year, so the master branch will change. Because of this I will create branches for each version of the tool.
 For the submission to TABLEAUX2023, check the TABLEAUX2023 branch.
+For the submission to CSL2024, check the CSL2024 branch.
 
 ## Authorship
 Robert McArthur and Cormac Kikkert, for contact email cormac.kikkert@anu.edu.au
@@ -11,6 +12,7 @@ Robert McArthur and Cormac Kikkert, for contact email cormac.kikkert@anu.edu.au
 There are two programs in this repo.
 
 `kaleidoscope`: CEGARBox++(K), handles K extended with single axioms OR global assumptions OR converse modalities (tense logic).
+
 `lumen`: CEGARBox++(LTL), handles LTL and LTL-f
 
 ## Compile
