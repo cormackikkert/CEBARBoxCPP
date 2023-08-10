@@ -30,13 +30,12 @@ MinisatProver::~MinisatProver() {}
 
 modal_names_map MinisatProver::prepareSAT(FormulaTriple clauses,
                                           name_set extra) {
-  prepareExtras(extra);
 
   modal_names_map newExtra;
-  prepareModalClauses(clauses.getBoxClauses(), newExtra, boxLits, boxFromRight);
   prepareModalClauses(clauses.getDiamondClauses(), newExtra, diamondLits,
                       diamondFromRight);
-
+  prepareModalClauses(clauses.getBoxClauses(), newExtra, boxLits, boxFromRight);
+  prepareExtras(extra);
   prepareFalse();
   prepareClauses(clauses.getClauses());
 
@@ -284,18 +283,18 @@ Solution MinisatProver::solveReduced(const literal_set &assumptions) {
 
     for (auto modalityLitImplication : diamondLits) {
         for (auto literalImplication : modalityLitImplication.second) {
-            //trigs.insert(~literalImplication.first);
+            trigs.insert(~literalImplication.first);
         }
     }
 
 
     for (auto modalityLitImplication : boxLits) {
         for (auto literalImplication : modalityLitImplication.second) {
-            //trigs.insert(~literalImplication.first);
+            trigs.insert(~literalImplication.first);
         }
     }
 
-    cout << "BEGIN: ";
+    //cout << "BEGIN: ";
     while (true) {
         literal_set newAssumps;
         newAssumps.insert(assumptions.begin(), assumptions.end());
@@ -304,7 +303,7 @@ Solution MinisatProver::solveReduced(const literal_set &assumptions) {
       Solution solution;
       shared_ptr<Minisat::vec<Minisat::Lit>> vecAssumps =
           convertAssumptions(newAssumps);
-      cout << "+";
+      //cout << "+";
       solution.satisfiable = calcSolver->solve(*vecAssumps);
       if (!solution.satisfiable) {
         solution.conflict = convertConflictToAssumps(calcSolver->conflict);

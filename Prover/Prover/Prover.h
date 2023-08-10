@@ -146,6 +146,7 @@ public:
 
     void calculateTriggeredLtlClauses(ltl_implications &ltlLits,literal_set &triggered);
   void updateLastFail(Literal diamondRight);
+  void addToFail(Literal diamondRight, int delta);
 
   virtual void printModel() = 0;
 

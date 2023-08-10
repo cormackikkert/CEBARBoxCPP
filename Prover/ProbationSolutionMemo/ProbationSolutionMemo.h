@@ -13,6 +13,15 @@ using namespace std;
 
 typedef pair<int, int> ProbationSolutionMemoState;
 
+class ProbationCache {
+    public:
+    int minimalRoot = -1;
+    vector<shared_ptr<Bitset>> cache;
+    bool contains(shared_ptr<Bitset>);
+};
+
+ProbationCache addProbationCache(ProbationCache& p1, ProbationCache &p2);
+
 struct ProbationSolutionMemoResult {
     bool inSatMemo;
     Solution result;

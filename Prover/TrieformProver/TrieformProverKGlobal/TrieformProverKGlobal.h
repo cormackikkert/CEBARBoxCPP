@@ -15,6 +15,7 @@ using namespace std;
 class TrieformProverKGlobal : public Trieform {
 protected:
 
+  static unordered_map<literal_set, int, LiteralSetHash, LiteralSetEqual> vertexLabel;
   static unordered_map<literal_set, literal_set, LiteralSetHash, LiteralSetEqual> modelCache;
   static shared_ptr<Cache> persistentCache;
   unsigned int assumptionsSize = 0;
@@ -53,7 +54,7 @@ public:
   vector<literal_set> allConflicts;
 
   Solution prove(literal_set assumptions = literal_set());
-  Solution prove(int depth, literal_set assumptions = literal_set());
+  pair<Solution,int> prove(int depth, literal_set assumptions = literal_set());
   virtual void preprocess();
   virtual void prepareSAT(name_set extra = name_set());
   virtual shared_ptr<Bitset> fleshedOutAssumptionBitset(literal_set model);

@@ -340,7 +340,8 @@ literal_set Prover::getNotDiamondLeft(int modality, Literal diamond) {
     return notDiamondLeft;
 }
 
-void Prover::updateLastFail(Literal clause) { lastFail[clause] = --failCount; }
+void Prover::updateLastFail(Literal clause) {lastFail[clause]=++failCount;}
+void Prover::addToFail(Literal clause, int delta) {lastFail[clause]+=delta;}// = ++failCount; }
 
 diamond_queue Prover::getPrioritisedTriggeredDiamonds(int modality) {
     // Note MUST avoid box clauses

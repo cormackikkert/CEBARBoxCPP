@@ -7,22 +7,28 @@ For the submission to TABLEAUX2023, check the TABLEAUX2023 branch.
 ## Authorship
 Robert McArthur and Cormac Kikkert, for contact email cormac.kikkert@anu.edu.au
 
-## Dependencies
-This project requires minisat installed to run and compile. Instruction for installing minisat are available [here](https://github.com/niklasso/minisat).
+## Programs
+There are two programs in this repo.
+
+`kaleidoscope`: CEGARBox++(K), handles K extended with single axioms OR global assumptions OR converse modalities (tense logic).
+`lumen`: CEGARBox++(LTL), handles LTL and LTL-f
 
 ## Compile
 A statically compiled file is already available in the repo - compiled on Ubuntu 20.04.3.
 
 However, if you want to recreate our results, you will need to compile CEGARBoxCPP for your machine. To do this, follow the instructions below:
 
-1. Install minisat. The main one doesn't work, so instead use this [fork](https://github.com/agurfinkel/minisat)
-2. Install an ipasir compliant SAT solver, and put `libipasir.a` in `/Prover/IpasirProver/libipasir.a`. I use [cadical](https://github.com/arminbiere/cadical) but it doesn't matter, as Minisat was used for our experiments.
-3. Remove the `-static` flag in the makefile
-4. Run ``make`` to compile CEGARBox
+1. Remove the `-static` flag in the makefile
+2. Run ``make`` to compile CEGARBox
+
+Note that the following libraries will be installed:
+1. [Minisat](https://github.com/agurfinkel/minisat), a SAT-solver. This is a fork, as the original is outdated and no longer works.
+2. [antlr4](https://www.antlr.org/download.html) for LTL parsing. This is the C++ target
+3. [ltl2snf](https://nalon.org/#software) for converting LTL formula to SNF.
 
 
 ## Input Formula
-CEGARBox accepts file input. Input is terminated by a newline and valid input formula are defined by the following grammar:
+CEGARBox(K) accepts file input. Input is terminated by a newline and valid input formula are defined by the following grammar:
 ```
 Index ::= Nat || -Nat
 Atom ::= Alphanumeric String
@@ -35,7 +41,23 @@ Formula ::=
 
 Here, negative numbers are used to define converse for tense logic. For example ``[-1]`` is the converse of ``[1]``.
 
-CEGARBox does not handle intohylo files! So files with BEGIN and END won't work. Please refer to the examples in `Examples`.
+CEGARBox(K) does not handle intohylo files! So files with BEGIN and END won't work. Please refer to the examples in `Examples`.
+
+CEGARBox(LTL) uses the same input as ltl2snf:
+```
+PROPOSITIONAL SYMBOLS: an alfanumeric sequence starting with a letter: p, p1, p_1 (underscore should not be used at the beginning of a name)
+CONSTANTS: true, false
+NOT: -, ~, not
+AND: &, and
+OR: |, or
+IMPLICATION: ->, =>, imp, imply, implies
+ONLY IF: <-, <=
+DOUBLE IMPLICATION: <->, <=>, iff
+ALWAYS: [], always
+EVENTUALLY: <>, sometime
+UNTIL: U, until
+UNLESS: W, unless
+```
 
 ## Running CEGARBox 
 
