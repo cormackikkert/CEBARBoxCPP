@@ -14,5 +14,4 @@ main
 callgrind*
 .ccls
 *.o
-Parser/
 massif*
