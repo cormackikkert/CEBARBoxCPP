@@ -30,21 +30,27 @@ sudo apt-get update && sudo apt-get install -y build-essential wget unzip tar cm
 
 ## Installing ANTLR4
 ```
+(
 export ANTLR_DIR=/antlr4 && wget https://www.antlr.org/download/antlr4-cpp-runtime-4.13.0-source.zip && \
-mkdir -p $ANTLR_DIR && unzip -q antlr4-cpp-runtime-4.13.0-source.zip -d $ANTLR_DIR && \
-mkdir -p $ANTLR_DIR/build $ANTLR_DIR/run && cd $ANTLR_DIR/build && cmake .. && make install
+sudo mkdir -p $ANTLR_DIR && sudo unzip -q antlr4-cpp-runtime-4.13.0-source.zip -d $ANTLR_DIR && \
+sudo mkdir -p $ANTLR_DIR/build $ANTLR_DIR/run && cd $ANTLR_DIR/build && sudo cmake .. && sudo make install
+)
 ```
 
 ## Installing Minisat
 ```
+(
 git clone https://github.com/agurfinkel/minisat.git && cd minisat && \
 make config prefix=/usr && sudo make install
+)
 ```
 
 ## Installing ltl2snf
 ```
+(
 wget https://nalon.org/software/ltl2snf-0.1.0.tar.gz && \
 tar xzf ltl2snf-0.1.0.tar.gz && cd ltl2snf-0.1.0 && make && mv ./ltl2snf ../ && cd .. && rm -rf ltl2snf-0.1.0*
+)
 ```
 
 ## Installing CEGARBoxCPP
