@@ -30,13 +30,12 @@ MinisatProver::~MinisatProver() {}
 
 modal_names_map MinisatProver::prepareSAT(FormulaTriple clauses,
                                           name_set extra) {
-  prepareExtras(extra);
 
   modal_names_map newExtra;
-  prepareModalClauses(clauses.getBoxClauses(), newExtra, boxLits, boxFromRight);
   prepareModalClauses(clauses.getDiamondClauses(), newExtra, diamondLits,
                       diamondFromRight);
-
+  prepareModalClauses(clauses.getBoxClauses(), newExtra, boxLits, boxFromRight);
+  prepareExtras(extra);
   prepareFalse();
   prepareClauses(clauses.getClauses());
 
@@ -140,6 +139,7 @@ void MinisatProver::prepareModalClauses(modal_clause_set modal_clauses,
                           Minisat::lbool((uint8_t)1));
     }
     newExtra[clause.modality].insert(getPrimitiveName(clause.right));
+
 
     createModalImplication(clause.modality, toLiteral(clause.left),
                            toLiteral(clause.right), modalLits, modalFromRight);
@@ -277,6 +277,51 @@ Solution MinisatProver::solve(const literal_set &assumptions) {
   return solution;
 }
 
+
+Solution MinisatProver::solveReduced(const literal_set &assumptions) {
+    literal_set trigs;
+
+    for (auto modalityLitImplication : diamondLits) {
+        for (auto literalImplication : modalityLitImplication.second) {
+            trigs.insert(~literalImplication.first);
+        }
+    }
+
+
+    for (auto modalityLitImplication : boxLits) {
+        for (auto literalImplication : modalityLitImplication.second) {
+            trigs.insert(~literalImplication.first);
+        }
+    }
+
+    //cout << "BEGIN: ";
+    while (true) {
+        literal_set newAssumps;
+        newAssumps.insert(assumptions.begin(), assumptions.end());
+        newAssumps.insert(trigs.begin(), trigs.end());
+
+      Solution solution;
+      shared_ptr<Minisat::vec<Minisat::Lit>> vecAssumps =
+          convertAssumptions(newAssumps);
+      //cout << "+";
+      solution.satisfiable = calcSolver->solve(*vecAssumps);
+      if (!solution.satisfiable) {
+        solution.conflict = convertConflictToAssumps(calcSolver->conflict);
+        if (trigs.empty()) return solution;
+        bool containsTrig = false;
+        for (auto lit : solution.conflict)  {
+            if ((trigs.find(lit) != trigs.end())) {
+                containsTrig = true;
+                trigs.erase(lit);
+            }
+        }
+        if (!containsTrig) return solution;
+      } else {
+        return solution;
+      }
+    }
+}
+
 void MinisatProver::reduce_conflict(literal_set& conflict) {
     literal_set all_lits = conflict;
     int i = 0;
@@ -294,6 +339,8 @@ void MinisatProver::reduce_conflict(literal_set& conflict) {
     }
     //cout << " -> " << conflict.size() << endl;
 }
+
+
 
 void MinisatProver::addClause(literal_set clause) {
   calcSolver->addClause(*convertAssumptions(clause));

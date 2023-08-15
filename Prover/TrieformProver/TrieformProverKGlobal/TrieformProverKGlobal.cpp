@@ -1,5 +1,8 @@
 #include "TrieformProverKGlobal.h"
 
+ unordered_map<literal_set, literal_set, LiteralSetHash, LiteralSetEqual> TrieformProverKGlobal::modelCache;
+ unordered_map<literal_set, int, LiteralSetHash, LiteralSetEqual> TrieformProverKGlobal::vertexLabel;
+
 shared_ptr<Cache> TrieformProverKGlobal::persistentCache =
     make_shared<PrefixCache>("P");
 
@@ -79,10 +82,43 @@ void TrieformProverKGlobal::prepareSAT(name_set extra) {
         idMap[name] = assumptionsSize++;
     }
     modal_names_map modalExtras = prover->prepareSAT(clauses, extra);
+    name_set everything;
+    for (auto x : modalExtras) {
+        everything.insert(x.second.begin(), x.second.end());
+    }
     for (auto modalSubtrie : subtrieMap) {
-        modalSubtrie.second->prepareSAT(modalExtras[modalSubtrie.first]);
+        modalSubtrie.second->prepareSAT(everything);//modalExtras[modalSubtrie.first]);
     }
 }
+
+
+/*
+void TrieformProverKGlobal::prepareSAT(name_set extra) {
+    vector<shared_ptr<Trieform>> sorted = getTopSort();
+    for (auto trieform : sorted) {
+        name_set incoming;
+        if (!trieform->modality.empty()) {
+            for (auto parent : trieform->parents) {      
+                // print savedModalExtras, modality.back()
+
+                name_set parentModalExtras = parent->savedModalExtras[trieform->modality.back()];
+                incoming.insert(parentModalExtras.begin(),
+                                parentModalExtras.end());
+            }
+        }  else {
+            incoming.insert(extra.begin(), extra.end());
+        }
+        for (string name : incoming) {
+            dynamic_cast<TrieformProverKGlobal *>(trieform.get())->idMap[name] = 
+                dynamic_cast<TrieformProverKGlobal *>(trieform.get())->assumptionsSize++;
+        }
+        trieform->savedModalExtras = trieform->getProver()->prepareSAT(trieform->clauses, incoming);
+    }
+
+    // run dfs
+    
+}
+*/
 
 shared_ptr<Bitset> TrieformProverKGlobal::fleshedOutAssumptionBitset(
     literal_set model) {
@@ -98,16 +134,32 @@ shared_ptr<Bitset> TrieformProverKGlobal::fleshedOutAssumptionBitset(
 int TrieformProverKGlobal::isInHistory(
     vector<pair<int, shared_ptr<Bitset>>> history, shared_ptr<Bitset> bitset) {
     for (unsigned i = history.size(); i-- > 0;) {
-        if (history[i].second->contains(*bitset)) return history[i].first;
+        if (history[i].second->contains(*bitset)) {return history[i].first;}
     }
     return -1;
 }
 
+
 Solution TrieformProverKGlobal::prove(literal_set assumptions) {
-    return prove(0, assumptions);
+    return prove(0, assumptions).first;
 }
 
-Solution TrieformProverKGlobal::prove(int depth, literal_set assumptions) {
+pair<Solution, int> TrieformProverKGlobal::prove(int depth, literal_set assumptions) {
+    /*
+    if (vertexLabel.find(assumptions) == vertexLabel.end()) {
+        vertexLabel[assumptions] = vertexLabel.size() + 1;
+    }
+    */
+
+    if (assumptions.find(Literal("$root", true)) != assumptions.end()) {
+        literal_set newAssumptions = assumptions;
+        newAssumptions.erase(Literal("$root", true));
+        auto x =  prove(depth, newAssumptions);
+        if (!x.first.satisfiable) {
+            return x;
+        }
+    }
+    occ[assumptions]++;
     ProbationSolutionMemoState probationState;
     shared_ptr<Bitset> assumptionsBitset;
     shared_ptr<Bitset> fullAssumptionsBitset;
@@ -117,60 +169,75 @@ Solution TrieformProverKGlobal::prove(int depth, literal_set assumptions) {
     modal_literal_map triggeredDiamonds;
     modal_literal_map triggeredBoxes;
     ProbationSolutionMemoResult probationMemoResult;
+    int usedMinimalRoot;
 
 
     // Check solution memo
-    /*
-    cout << "Depth: " << depth << " Proving: ";
-    for (auto x : assumptions) cout << x.toString() << " "; cout << endl;
-    */
     assumptionsBitset =
         convertAssumptionsToBitset(assumptions);
     memoResult =
         localMemo.getFromMemo(assumptionsBitset);
 
     if (memoResult.inSatMemo) {
-        return memoResult.result;
+        return {memoResult.result, depth};
     }
 
     probationMemoResult = probationMemo.getFromMemo(
         make_shared<vector<int>>(modality), assumptionsBitset);
 
     if (probationMemoResult.inSatMemo) {
-        // cout << "Depth :" << depth << " " << "sat from probation: " <<
-        // probationMemo.minimalRoot << endl;
-        return probationMemoResult.result;
+        //cout << "Depth :" << depth << " " << "sat from probation: " <<
+        //probationMemo.minimalRoot << endl;
+        return {probationMemoResult.result, probationMemo.minimalRoot};
     }
-
     int inHistory = isInHistory(history, assumptionsBitset);
     if (inHistory != -1) {
+        //cout << depth << " SAT FROM HISTORY: " << inHistory << endl;
         probationMemo.updateMinimalRoot(inHistory);
-        // cout << "Depth :" << depth << " " << "Using history: " << inHistory
-        // << endl;
-        return {true, literal_set()};
+        return {{true, literal_set()}, inHistory};
+    }
+    if (occ.find(assumptions) != occ.end()) {
+        //cout << litsetString(assumptions) << endl;
+        //cout << "DEPTH: " << depth << " SEEN: "<< occ[assumptions] << endl;
     }
     
     restart:
+    usedMinimalRoot = depth;
     probationState = probationMemo.getState();
     // Solve locally
-    solution = prover->solve(assumptions);
+
+    if (false && modelCache.find(assumptions) != modelCache.end()) {
+        //cout << "DEPTH: " << depth << " USING PREVIOUS" << endl ;
+    currentModel = modelCache[assumptions];
+    } else {
+    solution = prover->solveReduced(assumptions);
+    //solution = prover->solve(assumptions);
+    //cout << endl;
 
     if (!solution.satisfiable) {
-        // prover->reduce_conflict(solution.conflict);
+        //prover->reduce_conflict(solution.conflict);
         probationMemo.setState(probationState);
         updateSolutionMemo(assumptionsBitset, solution);
-        return solution;
+        return {solution, depth};
     }
+    //cout << "IS SAT" << endl;
 
     currentModel = prover->getModel();
+    //modelCache[assumptions] = currentModel;
+    }
     assumptionsBitset = fleshedOutAssumptionBitset(currentModel);
 
-    prover->calculateTriggeredDiamondsClauses();
+    prover->calculateTriggeredDiamondsClauses(currentModel);
     triggeredDiamonds = prover->getTriggeredDiamondClauses();
-    prover->calculateTriggeredBoxClauses();
+    prover->calculateTriggeredBoxClauses(currentModel);
     triggeredBoxes = prover->getTriggeredBoxClauses();
     
     pastModels.push_back({depth, currentModel});
+
+
+    //probationMemo.updateMinimalRoot(depth);
+    //probationMemo.insertSat(make_shared<vector<int>>(modality), assumptionsBitset);
+
     for (auto modalityDiamonds : triggeredDiamonds) {
         // Handle each modality
         if (modalityDiamonds.second.size() == 0) {
@@ -178,7 +245,7 @@ Solution TrieformProverKGlobal::prove(int depth, literal_set assumptions) {
             // skip it
             continue;
         }
-
+    
         Solution childSolution;
 
         TrieformProverKGlobal *childNode =
@@ -199,26 +266,47 @@ Solution TrieformProverKGlobal::prove(int depth, literal_set assumptions) {
             // Create a world for each diamond
             Literal diamond = diamondPriority.top().literal;
             diamondPriority.pop();
+        
+            // We do not want to run into this again (bit of a hack)
+            prover->updateLastFail(diamond);
+            //prover->addToFail(diamond, 1);
 
             literal_set childAssumptions =
                 literal_set(triggeredBoxes[modalityDiamonds.first]);
             childAssumptions.insert(diamond);
 
+            /*
+        if (vertexLabel.find(childAssumptions) == vertexLabel.end()) {
+            vertexLabel[childAssumptions] = vertexLabel.size() + 1;
+        }
+        */
+        //cout << vertexLabel[assumptions] << " -> " << vertexLabel[childAssumptions] << endl;
+
+
             // Run the solver for the next level
             history.push_back({depth, assumptionsBitset});
-            childSolution = childNode->prove(depth + 1, childAssumptions);
+            //cout << "-" << endl;
+            //cout << litsetString(assumptions) << endl;
+            //cout << "SPAWNING: " << diamond.toString() << " -> " <<  litsetString(childAssumptions) << endl;
+            //cout << "CHILD: " << diamondPriority.size() + 1 << endl;
+            auto result =childNode->prove(depth + 1, childAssumptions); 
+            childSolution = result.first;
+            usedMinimalRoot = min(usedMinimalRoot, result.second);
+            //cout << depth << ": NEW USED: " << usedMinimalRoot << endl;
 
             history.pop_back();
 
             // Clause propagation
+            /*
             for (literal_set learnClause : prover->getClauses(
                      modalityDiamonds.first,
                      prover->negatedClauses(childNode->allConflicts))) {
-                allConflicts.push_back(learnClause);
-                prover->addClause(learnClause);
+                //cout << "CLAUSE PROP" << endl;
+                //allConflicts.push_back(learnClause);
+                //prover->addClause(learnClause);
 
-                restartUntil =
-                    checkClauseAgainstPastModels(restartUntil, learnClause);
+                //restartUntil =
+                   // checkClauseAgainstPastModels(restartUntil, learnClause);
             }
             childNode->allConflicts.clear();
 
@@ -228,12 +316,14 @@ Solution TrieformProverKGlobal::prove(int depth, literal_set assumptions) {
                 if (restartUntil == depth) {
                     // restart current node
                     restartUntil = -1;
-                    return prove(depth, assumptions);
+                    modelCache.erase(assumptions);
+                    goto restart;
                 } else {
                     // Keep backtracking until we should restart
                     return childSolution;
                 }
             }
+            */
 
             // If it is satisfiable create the next world
             if (childSolution.satisfiable) {
@@ -245,6 +335,7 @@ Solution TrieformProverKGlobal::prove(int depth, literal_set assumptions) {
                     continue;
             }
             diamondFailed = true;
+            //prover->updateLastFail(diamond);
             break;
         }
 
@@ -263,33 +354,55 @@ Solution TrieformProverKGlobal::prove(int depth, literal_set assumptions) {
             probationMemo.setState(probationState);
             if (restartUntil == depth) {
                 // restart current node
+                //cout << "RESTART UNTI HERE" << endl;
+                //cout << "RESTART" << endl;
                 restartUntil = -1;
+                modelCache.erase(assumptions);
                 goto restart;
                 //return prove(depth, assumptions);
             } else {
                 // Keep backtracking until we should restart
-                return childSolution;
+                //cout << "RESTART UNTIL" << endl;
+                return {childSolution, 0};
             }
         }
     }
     pastModels.pop_back();
+    //cout << "RETURNING SAT: " << depth << " " << usedMinimalRoot << endl;
 
     // If we reached here the solution is satisfiable under all modalities
     if (probationMemo.minimalRoot == -1) {
+        //cout << "NORMAL" << endl;
         updateSolutionMemo(assumptionsBitset, solution);
     } else if (depth == probationMemo.minimalRoot) {
+        //cout << "ALL PROBATION" << endl;
         // Move probation cache to actual cache
         for (auto x : probationMemo.getSatSols()) {
             auto trieform = dynamic_cast<TrieformProverKGlobal *>(
                 all_trieforms[*x.first].get());
             trieform->localMemo.insertSat(x.second);
+            //modelCache.erase(*x.second.second);
         }
         probationMemo.setState({-1, 0});
-    } else if (depth > probationMemo.minimalRoot) {
+    } else if (depth == usedMinimalRoot) {
+        //cout << "ADDING TO ENCLOSED CACHE" << endl;
+        // Move part of the probation cache to the actual cache
+        auto toAdd = probationMemo.getSatSols();
+        for (auto i = probationState.second; i < toAdd.size(); i++){
+            auto trieform = dynamic_cast<TrieformProverKGlobal *>(
+                all_trieforms[*toAdd[i].first].get());
+            trieform->localMemo.insertSat(toAdd[i].second);
+        } 
+        probationMemo.setState(probationState);
+        localMemo.insertSat(assumptionsBitset);
+    }else if (depth > probationMemo.minimalRoot) {
+        //cout << "ADDING TO PROBATION: " << probationMemo.minimalRoot << endl;
+        //cout << "ADD: " << litsetString(assumptions) << " " << litsetString(currentModel) << endl;
         probationMemo.insertSat(make_shared<vector<int>>(modality),
                                 assumptionsBitset);
+        //probationMemo.addPastModel(make_shared<literal_set> (currentModel));
     }
-    return solution;
+    return {solution, usedMinimalRoot};
 }
 
 unsigned int TrieformProverKGlobal::checkClauseAgainstPastModels(
@@ -417,5 +530,33 @@ void TrieformProverKGlobal::forwardProp() {
     for (auto modalSubtrie : subtrieMap) {
         modalSubtrie.second->clauses.extendClauses(clauses);
         dynamic_cast<TrieformProverKGlobal *>(modalSubtrie.second.get())->forwardProp();
+    }
+}
+
+void TrieformProverKGlobal::addGlobalAssumptions(shared_ptr<Trieform> globalAssumptions) {
+    for (auto modalSubtrie : subtrieMap) {
+        dynamic_cast<TrieformProverKGlobal *>(modalSubtrie.second.get())
+            ->addGlobalAssumptions(globalAssumptions);
+    }
+    //overShadow(globalAssumptions, 0);
+    compose(globalAssumptions, 0, false);
+}
+
+
+void TrieformProverKGlobal::cutReflexiveLeaves(shared_ptr<Trieform> globalAssumptions) {
+    // Leaves are handled as reflexive in the proof procedure, so delete cyclic
+    // references here
+    vector<int> toRemove;
+    for (auto modalSubtrie : subtrieMap) {
+        // check if successor == this
+        if (modalSubtrie.second == shared_from_this()) {
+            toRemove.push_back(modalSubtrie.first);
+        } else {
+        dynamic_cast<TrieformProverKGlobal *>(modalSubtrie.second.get())
+            ->cutReflexiveLeaves(globalAssumptions);
+        }
+    }
+    for (auto x : toRemove) {
+        subtrieMap.erase(x);
     }
 }

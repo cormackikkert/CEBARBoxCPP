@@ -32,6 +32,8 @@ struct SolverConstraints {
     bool localReduction = false;
     bool globalReduction = false;
     bool useKsp = false;
+    bool usingGlobalAssumps = false;
+    bool useDag = false;
 };
 
 #endif

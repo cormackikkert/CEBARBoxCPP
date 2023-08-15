@@ -3,26 +3,62 @@
 ## Versions
 I will be working on CEGARBoxCPP continuously throughout the year, so the master branch will change. Because of this I will create branches for each version of the tool.
 For the submission to TABLEAUX2023, check the TABLEAUX2023 branch.
+For the submission to CSL2024, check the CSL2024 branch.
 
 ## Authorship
 Robert McArthur and Cormac Kikkert, for contact email cormac.kikkert@anu.edu.au
 
-## Dependencies
-This project requires minisat installed to run and compile. Instruction for installing minisat are available [here](https://github.com/niklasso/minisat).
+## Programs
+There are two programs in this repo.
 
-## Compile
-A statically compiled file is already available in the repo - compiled on Ubuntu 20.04.3.
+`kaleidoscope`: CEGARBox++(K), handles K extended with single axioms OR global assumptions OR converse modalities (tense logic).
 
-However, if you want to recreate our results, you will need to compile CEGARBoxCPP for your machine. To do this, follow the instructions below:
+`lumen`: CEGARBox++(LTL), handles LTL and LTL-f
 
-1. Install minisat. The main one doesn't work, so instead use this [fork](https://github.com/agurfinkel/minisat)
-2. Install an ipasir compliant SAT solver, and put `libipasir.a` in `/Prover/IpasirProver/libipasir.a`. I use [cadical](https://github.com/arminbiere/cadical) but it doesn't matter, as Minisat was used for our experiments.
-3. Remove the `-static` flag in the makefile
-4. Run ``make`` to compile CEGARBox
+## Compilation
+Statically compiled files `kaleidoscope` and `lumen` are already available on this repo - compiled on Ubuntu 20.04.3.
 
+However, if you want to recreate our results, you will need to compile CEGARBoxCPP for your machine. To do this, follow the instructions but note that the following will be installed:
+1. [Minisat](https://github.com/agurfinkel/minisat), a SAT-solver. This is a fork, as the original is outdated and no longer works.
+2. [antlr4](https://www.antlr.org/download.html) for LTL parsing. This is the C++ target
+3. [ltl2snf](https://nalon.org/#software) for converting LTL formula to SNF.
+
+## Prerequisites
+```
+sudo apt-get update && sudo apt-get install -y build-essential wget unzip tar cmake sudo libz-dev libgoogle-glog-dev
+```
+
+## Installing ANTLR4
+```
+(
+export ANTLR_DIR=/antlr4 && wget https://www.antlr.org/download/antlr4-cpp-runtime-4.13.0-source.zip && \
+sudo mkdir -p $ANTLR_DIR && sudo unzip -q antlr4-cpp-runtime-4.13.0-source.zip -d $ANTLR_DIR && \
+sudo mkdir -p $ANTLR_DIR/build $ANTLR_DIR/run && cd $ANTLR_DIR/build && sudo cmake .. && sudo make install
+)
+```
+
+## Installing Minisat
+```
+(
+git clone https://github.com/agurfinkel/minisat.git && cd minisat && \
+make config prefix=/usr && sudo make install
+)
+```
+
+## Installing ltl2snf
+```
+(
+wget https://nalon.org/software/ltl2snf-0.1.0.tar.gz && \
+tar xzf ltl2snf-0.1.0.tar.gz && cd ltl2snf-0.1.0 && make && mv ./ltl2snf ../ && cd .. && rm -rf ltl2snf-0.1.0*
+)
+```
+
+## Installing CEGARBoxCPP
+Run ``make`` to compile CEGARBox
+Then test with `cd Examples && ./tests.sh`
 
 ## Input Formula
-CEGARBox accepts file input. Input is terminated by a newline and valid input formula are defined by the following grammar:
+CEGARBox(K) accepts file input. Input is terminated by a newline and valid input formula are defined by the following grammar:
 ```
 Index ::= Nat || -Nat
 Atom ::= Alphanumeric String
@@ -35,7 +71,23 @@ Formula ::=
 
 Here, negative numbers are used to define converse for tense logic. For example ``[-1]`` is the converse of ``[1]``.
 
-CEGARBox does not handle intohylo files! So files with BEGIN and END won't work. Please refer to the examples in `Examples`.
+CEGARBox(K) does not handle intohylo files! So files with BEGIN and END won't work. Please refer to the examples in `Examples`.
+
+CEGARBox(LTL) uses the same input as ltl2snf:
+```
+PROPOSITIONAL SYMBOLS: an alfanumeric sequence starting with a letter: p, p1, p_1 (underscore should not be used at the beginning of a name)
+CONSTANTS: true, false
+NOT: -, ~, not
+AND: &, and
+OR: |, or
+IMPLICATION: ->, =>, imp, imply, implies
+ONLY IF: <-, <=
+DOUBLE IMPLICATION: <->, <=>, iff
+ALWAYS: [], always
+EVENTUALLY: <>, sometime
+UNTIL: U, until
+UNLESS: W, unless
+```
 
 ## Running CEGARBox 
 
@@ -65,4 +117,3 @@ ALC benchmarks can be downloaded from [here](https://web.archive.org/web/2019030
 Some examples to see how to use the tool are in `Examples`.
 
 Note: logics besides K, KD, KT, KB, K4, K5, and tense are untested, and may not work.
-Also, we have not extensively tested multimodal logics either - the standard benchmarks are all monomodal

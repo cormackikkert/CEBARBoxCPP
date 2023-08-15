@@ -25,6 +25,7 @@
 #include "ParseFormula/ParseFormula.h"
 #include "ParseFormulaNew/ParseFormulaNew.h"
 #include "Prover/TrieformProver/TrieformProverK/TrieformProverK.h"
+#include "Prover/TrieformProver/TrieformProverKDag/TrieformProverKDag.h"
 #include "Prover/TrieformProver/TrieformProverKGlobal/TrieformProverKGlobal.h"
 #include "Prover/TrieformProver/TrieformProverKt/TrieformProverKt.h"
 
@@ -48,10 +49,13 @@ static struct argp_option options[] = {
     {"globalReduction", 'g', 0, 0, "Perform a global reduction into K"},
     {"verbose", 'v', 0, 0, "Verbosity."},
     {"ksp", 'k', 0, 0, "Use KSP."},
+    {"dag", 'q', 0, 0, "Use an underlying DAG datastructure."},
+    {"globalAssumptions", 'u', "FILE", 0, "File containing global assumptions"},
     {0, 0, 0, 0, 0, 0}};
 
 struct arguments_struct {
     string filename = "file.p";
+    string globalFilename = "";
     SolverConstraints settings;
     bool valid = false;
     bool verbose = false;
@@ -62,6 +66,10 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
     switch (key) {
         case 'f': {
             arguments->filename = arg;
+        } break;
+        case 'u': {
+            arguments->globalFilename = arg;
+            arguments->settings.usingGlobalAssumps = true;
         } break;
         case 't':
             arguments->settings.reflexive = true;
@@ -98,6 +106,9 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             break;
         case 'k':
             arguments->settings.useKsp = true;
+            break;
+        case 'q':
+            arguments->settings.useDag = true;
             break;
         case ARGP_KEY_ARG:
             return 0;
@@ -278,7 +289,6 @@ void solve(arguments_struct &args) {
         }
     }
     trie->reduceClauses();
-   
 
     if (args.settings.localReduction) {
         if (args.settings.reflexive)
@@ -295,8 +305,12 @@ void solve(arguments_struct &args) {
                 ->localReduction4(formulaDetails);
         
         if (args.settings.tense)
+        {
+            (args.settings.useDag) ? 
+            dynamic_cast<TrieformProverKDag *>(trie.get())->localReductionTense() : 
             dynamic_cast<TrieformProverK *>(trie.get())
                 ->localReductionTense();
+        }
     }
 
     if (args.settings.globalReduction) {
@@ -309,7 +323,6 @@ void solve(arguments_struct &args) {
     }
 
     trie->preprocess();
-    //cout << "Processed trie:" << endl << trie->toString() << endl;
     //  otherTrie->preprocess();
 
 #if DEBUG_PROGRESS
@@ -326,6 +339,42 @@ void solve(arguments_struct &args) {
 
 
     trie->removeTrueAndFalse();
+
+
+    {
+        if (args.globalFilename != "") {
+            shared_ptr<Formula> gFormula = ParseFormula(&args.globalFilename).parseFormula();
+
+
+            if (args.valid) {
+                gFormula = Not::create(gFormula);
+            }
+
+            Trieform::stringModalContexts = true;
+            formula_set orSet;
+            orSet.insert(Not::create(Atom::create("$root")));
+            orSet.insert(gFormula);
+            gFormula = Or::create(orSet);
+
+            gFormula = gFormula->negatedNormalForm();
+            gFormula = gFormula->simplify();
+            gFormula = gFormula->modalFlatten();
+
+            shared_ptr<Trieform> gTrie =
+                TrieformFactory::makeTrie(gFormula, args.settings);
+            gTrie->reduceClauses();
+            gTrie->oneNode(); // TODO: DOUBLE CHECK THIS!!!
+            gTrie->propRoot();
+            dynamic_cast<TrieformProverKGlobal *> (gTrie.get())->cutReflexiveLeaves(gTrie);
+            gTrie->unravel(2, false);
+            gTrie->preprocess();
+            gTrie->removeTrueAndFalse();
+
+            dynamic_cast<TrieformProverKGlobal *> (trie.get())->addGlobalAssumptions(gTrie);
+            trie->reduceClauses();
+            //dynamic_cast<TrieformProverKGlobal *> (trie.get())->cutReflexiveLeaves(gTrie);
+        }
+    }
 
     // otherTrie->removeTrueAndFalse();
     if (Trieform::stringModalContexts)
@@ -345,8 +394,7 @@ void solve(arguments_struct &args) {
     if (args.verbose) {
         cout << "Prepared SAT" << endl;
     }
-    
-
+   
     bool satisfiable = trie->isSatisfiable(
         Trieform::stringModalContexts);
 

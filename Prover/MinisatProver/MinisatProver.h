@@ -67,6 +67,7 @@ public:
   void prepareLtlfSat(LtlFormulaTriple clauses, Literal initialLiteral, bool succInSat);
   void prepareSAT(LtlFormulaTriple clauses);
   Solution solve(const literal_set &assumptions = literal_set());
+  Solution solveReduced(const literal_set &assumptions = literal_set());
   void reduce_conflict(literal_set& conflict);
   void addClause(literal_set clause);
 

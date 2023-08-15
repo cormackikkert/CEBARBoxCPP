@@ -95,6 +95,8 @@ Solution TrieformProverK::prove(int depth, literal_set assumptions) {
     modal_literal_map triggeredDiamonds;
     modal_literal_map triggeredBoxes;
 
+    
+
     assumptionsBitset = isExact ? nullptr : convertAssumptionsToBitset(assumptions);
 
     memoResult =
@@ -157,14 +159,13 @@ Solution TrieformProverK::prove(int depth, literal_set assumptions) {
 
             // Clause propagation
             bool shouldRestart = false;
-            /*
             for (literal_set learnClause :
             prover->getClauses(modalitySubtrie.first,
-            prover->negatedClauses(prover->filterPropagatedConflicts(childNode->allConflicts)))) { 
-                allConflicts.push_back(learnClause);
-                prover->addClause(learnClause);
+            prover->negatedClauses(childNode->allConflicts))) {//prover->filterPropagatedConflicts(childNode->allConflicts)))) { 
+                //cout << "CLAUSE PROP" << endl;
+                //allConflicts.push_back(learnClause);
+                //prover->addClause(learnClause);
             }
-            */
             childNode->allConflicts.clear();
 
             if (shouldRestart) {
@@ -550,13 +551,14 @@ void TrieformProverK::globalToLocal(int depth) {
 }
 
 
+
 void TrieformProverK::localReductionTense() {
   for (auto modalSubtrie : subtrieMap) {
     dynamic_cast<TrieformProverK *>(modalSubtrie.second.get())->localReductionTense();
     if (modalSubtrie.second->hasSubtrie(-modalSubtrie.first)) {
       shared_ptr<Trieform> future =
           modalSubtrie.second->getSubtrie(-modalSubtrie.first);
-        overShadow(future);//, modalSubtrie.first);
+        compose(future);//, modalSubtrie.first);
     }
 
     for (ModalClause futureModalClause :
@@ -570,4 +572,5 @@ void TrieformProverK::localReductionTense() {
   }
 
 }
+
 

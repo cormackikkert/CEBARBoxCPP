@@ -8,6 +8,7 @@
 #include <memory>
 #include <unordered_map>
 #include <vector>
+#include <set>
 
 #include "../../Formula/And/And.h"
 #include "../../Formula/Atom/Atom.h"
@@ -21,6 +22,7 @@
 #include "../Cache/Cache.h"
 #include "../Cache/PrefixCache/PrefixCache.h"
 #include "../FormulaTriple/FormulaTriple.h"
+
 
 using namespace std;
 
@@ -51,6 +53,7 @@ typedef unordered_map<CommonModalKey, formula_set, CommonModalKeyHasher,
                       CommonModalKeyEqual>
     common_modal_map;
 
+class TrieformProverK;
 class Trieform : public enable_shared_from_this<Trieform> {
    private:
     void propagateOr(const shared_ptr<Formula> &formula);
@@ -82,19 +85,23 @@ class Trieform : public enable_shared_from_this<Trieform> {
     static shared_ptr<Prover> globalProver;
     shared_ptr<Prover> prover;
 
-    vector<int> modality;
     void combineBoxRight();
     void combineDiamondRight();
     void combineBoxLeft();
+
 
     // Store as [1][1] b or (T -> [1] a) & [1] (a -> [1] b)
 
    public:
     Trieform();
     ~Trieform();
+    vector<shared_ptr<Trieform>> parents;
 
     static bool useOneSat;
     static shared_ptr<Cache> cache;
+    static set<pair<vector<int>, vector<int>>> composeCache;
+    static set<shared_ptr<Trieform>> visited;
+    static vector<shared_ptr<Trieform>> topSort;
 
     void propagateClauses(const shared_ptr<Formula> &formula);
     void overShadow(shared_ptr<Trieform> shadowTrie, int skipModality = 0);
@@ -155,6 +162,16 @@ class Trieform : public enable_shared_from_this<Trieform> {
                                         int curLevelDia = 0);
 
     void oneNode();
+    void compose(shared_ptr<Trieform> shadowTrie, int skipModality = 0, bool sameTrie=true);
+    void composeHelper(shared_ptr<Trieform> shadowTrie, int skipModality, bool sameTrie);
+    vector<shared_ptr<Trieform>> composedOnto;
+    void removeTrueAndFalseHelper();
+    modal_names_map savedModalExtras;
+    vector<shared_ptr<Trieform>> getTopSort();
+    void topSortDfs();
+    vector<int> modality;
+    void unravel(int depth, bool terminate=true);
+    void propRoot();
 };
 
 #endif
