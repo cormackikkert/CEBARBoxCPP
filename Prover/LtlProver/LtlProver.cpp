@@ -69,6 +69,7 @@ void LtlProver::preprocess() {
     formulaTriple.addClause({~root, ~seen_Ls});
     //initialLiterals.insert(~seen_Ls);
     formulaTriple.addStepClause({~seen_Ls, ~Ls}, ~seen_Ls);
+    formulaTriple.addStepClause({Ls}, seen_Ls);
 
     // [] L_start -> ~seen(p)
     // [] L & ~seen(p) & ~p -> X ~seen(p)

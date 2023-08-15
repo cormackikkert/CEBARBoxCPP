@@ -3,7 +3,7 @@
 #include "LineProver.h"
 #include "MonotProver.h"
 
-class LtlfProver : public LineProver {
+class LtlfProver : public MonotProver {
     public:
         LtlfProver (LtlFormulaTriple formulaTriple, literal_set initialLiterals);
         void preprocess();

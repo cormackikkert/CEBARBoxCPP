@@ -50,6 +50,7 @@ class LineProver {
         bool isSat();
         StateResult solveState(Obligation& obligation, int k);
     protected:
+        unordered_map<literal_set, int, LiteralSetHash, LiteralSetEqual> seen;
         // Store the successor state in the SAT solver.
         // Doubles number of variables, but ensures learnt reasons are only
         // to deal with reachability.

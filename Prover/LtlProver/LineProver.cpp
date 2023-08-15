@@ -457,6 +457,14 @@ StateResult LineProver::solveState(Obligation& obligation, int k) {
             obligation.assumptions.eventualities);
         // cout << "SUCCESSOR ASSUMPS: " << litsetString(successorAssumps.first)
         // << litsetString(successorAssumps.second) << endl;
+        /*
+        if (seen[assumptions] < obligation.distance) {
+            literal_set avoid;
+            for (auto x : assumptions) avoid.insert(~x);
+            addReason(avoid, obligation.distance, model);
+            seen[assumptions] = obligation.distance;
+        }
+        */
         return {
             true, {successorAssumps.first, successorAssumps.second}, {}, model};
     }

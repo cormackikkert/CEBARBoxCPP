@@ -210,17 +210,16 @@ string initialiseLtlf(string file) {
   LTLFormulaVisitor visitor;
   std::any result = visitor.visitStart(tree);
   auto formula = std::any_cast<std::shared_ptr<Formula>>(result);
-  //cout << "ORIG: " << formula->toString() << endl;
+  cout << "ORIG: " << formula->toString() << endl;
   formula = formula->negatedNormalForm();
-  //cout << "NNF: " << formula->toString() << endl;
+  cout << "NNF: " << formula->toString() << endl;
   formula = formula->tailNormalForm();
-  //cout << "TNF: " << formula->toString() << endl;
+  cout << "TNF: " << formula->toString() << endl;
   formula = And::create({formula, 
           Sometime::create(Atom::create("tail"))});/*, 
           Or::create({
                   Not::create(Atom::create("tail")), Next::create(Atom::create("true"))})});
                   */
-
   // Write tail normal form to a temporary file
   std::ofstream tailFormFile ("tail.ltl");
   tailFormFile << formula->toString();
@@ -259,6 +258,7 @@ int main(int argc, char **argv) {
   // Run ltl2snf on the temporary file
   std::string flag = finiteMode ? "-reuse_renaming -prenex  -simp" : "-reuse_renaming -prenex -ple -simp";
   std::string command = ltl2snfPath + " -i " + toSnf + " -o simplified.ltl " + flag;
+  cout << "CALLING: " << command << endl;
   int exitCode = std::system(command.c_str());           
   if (exitCode != 0) {
     std::cerr << "Failed to execute ltl2snf program." << std::endl;

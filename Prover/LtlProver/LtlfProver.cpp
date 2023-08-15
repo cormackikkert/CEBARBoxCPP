@@ -1,14 +1,14 @@
 #include "LtlfProver.h"
 
 LtlfProver::LtlfProver(LtlFormulaTriple formulaTriple, literal_set initialLiterals)
-    : LineProver(formulaTriple, initialLiterals) {
+    : MonotProver(formulaTriple, initialLiterals) {
     }
 
 void LtlfProver::preprocess() {
     formulaTriple.simplify();
      formulaTriple.addStepClause({Literal("tail", true)}, Literal("$false", true));
 
-     /*
+     // DEFINE TAIL (NEEDED FOR MONOTONE)
     Literal tail = Literal("tail", true);
     for (auto eventuality : formulaTriple.getEventualityClauses()) {
         //cout << clauseToString({~eventuality.first, eventuality.second}) << endl;
@@ -29,7 +29,6 @@ void LtlfProver::preprocess() {
         c.insert(ltlStepClause.right);
         formulaTriple.addClause(c);
     }
-    */
 }
 
 shared_ptr<Prover> LtlfProver::getSolver(int distance) {
